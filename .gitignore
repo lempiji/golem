@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/golem
+golem.so
+golem.dylib
+golem.dll
+golem.a
+golem.lib
+golem-test-*
+*.exe
+*.o
+*.obj
+*.lst

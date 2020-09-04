@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/xor
+xor.so
+xor.dylib
+xor.dll
+xor.a
+xor.lib
+xor-test-*
+*.exe
+*.o
+*.obj
+*.lst
