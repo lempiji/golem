@@ -142,17 +142,24 @@ version (all) // sigmoid
 
 version (all) // tanh
 {
-    Tensor!(T, Shape) tanh(T, size_t[] Shape)(Tensor!(T, Shape) x)
+    Tensor!(T, Shape, useGradient) tanh(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
     {
         import std.math : stdtanh = tanh;
 
         auto y = slice(x.value.map!(a => stdtanh(a)));
 
-        x.usedCount++;
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
 
-        return new Tensor!(T, Shape)(y, (Slice!(T*, Shape.length) grads) {
-            x.backward((1 - y * y) * grads);
-        });
+            return new typeof(return)(y, (Slice!(T*, Shape.length) grads) {
+                x.backward((1 - y * y) * grads);
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
     }
 
     unittest
@@ -174,6 +181,17 @@ version (all) // tanh
                 "%s : %s".format(x.grads[0], y.value[0]));
         assert(x.grads[1].approxEqual(1 - y.value[1] ^^ 2),
                 "%s : %s".format(x.grads[1], y.value[1]));
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2], No.gradient)([-1.0f, 1.0f]);
+        auto y = tanh(x);
+
+        import std.math : stdtanh = tanh, approxEqual;
+
+        assert(y.value[0].approxEqual(stdtanh(-1.0f)));
+        assert(y.value[1].approxEqual(stdtanh(1.0f)));
     }
 }
 
