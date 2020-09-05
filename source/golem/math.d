@@ -534,29 +534,36 @@ version (all) // sum
 
 version (all) // flatten
 {
-    Tensor!(T, [Shape[0], elementSize(Shape[1 .. $])]) flatten(T, size_t[] Shape)(Tensor!(T, Shape) x)
+    Tensor!(T, [Shape[0], elementSize(Shape[1 .. $])], useGradient) flatten(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
     {
         int err;
         auto y = x.value.reshape([x.value.shape[0], -1], err);
         assert(err == 0);
 
-        x.usedCount++;
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
 
-        alias Value = typeof(return).Value;
-        return new typeof(return)(y, (Value grad) {
-            int err;
-            auto reshaped = grad.reshape([
-                    grad.shape[0], expandShape!(Shape[1 .. $])
-                ], err);
-            assert(err == 0);
-            x.backward(reshaped);
-        });
+            alias Value = typeof(return).Value;
+            return new typeof(return)(y, (Value grad) {
+                int err;
+                auto reshaped = grad.reshape([
+                        grad.shape[0], expandShape!(Shape[1 .. $])
+                    ], err);
+                assert(err == 0);
+                x.backward(reshaped);
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
     }
 
     unittest
     {
         auto x = tensor!([2, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
-        auto y = flatten(x);
+        Tensor!(double, [2, 4]) y = flatten(x);
         assert(y.staticShape == [2, 4]);
         assert(y.value[0, 0] == 1.0);
         assert(y.value[0, 1] == 2.0);
@@ -566,5 +573,11 @@ version (all) // flatten
         assert(y.value[1, 1] == 6.0);
         assert(y.value[1, 2] == 7.0);
         assert(y.value[1, 3] == 8.0);
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2, 2, 2], No.gradient)([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        Tensor!(double, [2, 4], No.gradient) y = flatten(x);
     }
 }
