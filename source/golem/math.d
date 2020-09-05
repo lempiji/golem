@@ -259,9 +259,9 @@ version (all) // relu
 
 version (all) // linear
 {
-    Tensor!(T, [ShapeX[0], ShapeW[1]]) linear(T, size_t[2] ShapeX,
-            size_t[2] ShapeW, size_t[1] ShapeB)(Tensor!(T, ShapeX) x,
-            Tensor!(T, ShapeW) W, Tensor!(T, ShapeB) B)
+    Tensor!(T, [ShapeX[0], ShapeW[1]]) linear(T, size_t[2] ShapeX, UseGradient useGradX,
+            size_t[2] ShapeW, UseGradient useGradW, size_t[1] ShapeB, UseGradient useGradB)(Tensor!(T, ShapeX, useGradX) x,
+            Tensor!(T, ShapeW, useGradW) W, Tensor!(T, ShapeB, useGradB) B)
     {
         static assert(ShapeX[1] == ShapeW[0]);
         static assert(ShapeW[1] == ShapeB[0]);
@@ -282,24 +282,40 @@ version (all) // linear
         alias Return = Tensor!(T, [ShapeX[0], OutputDim]);
         alias Value = Return.Value;
 
-        W.usedCount++;
-        x.usedCount++;
-        B.usedCount++;
+        static if (canBackward!(typeof(W)) || canBackward!(typeof(x)) || canBackward!(typeof(B)))
+        {
+            static if (canBackward!(typeof(W))) W.usedCount++;
+            static if (canBackward!(typeof(x))) x.usedCount++;
+            static if (canBackward!(typeof(B))) B.usedCount++;
 
-        return new Return(result, (Value grad) {
-            W.backward((ref wGrads) {
-                gemm(T(1), x.value.transposed, grad, T(1), wGrads);
-            });
-            x.backward((ref xGrads) {
-                gemm(T(1), grad, W.value.transposed, T(1), xGrads);
-            });
-            B.backward((ref bGrads) {
-                foreach (i; 0 .. grad.shape[0])
+            return new Return(result, (Value grad) {
+                static if (canBackward!(typeof(W))) 
                 {
-                    bGrads[] += grad[i, 0 .. $];
+                    W.backward((ref wGrads) {
+                        gemm(T(1), x.value.transposed, grad, T(1), wGrads);
+                    });
+                }
+                static if (canBackward!(typeof(x))) 
+                {
+                    x.backward((ref xGrads) {
+                        gemm(T(1), grad, W.value.transposed, T(1), xGrads);
+                    });
+                }
+                static if (canBackward!(typeof(B))) 
+                {
+                    B.backward((ref bGrads) {
+                        foreach (i; 0 .. grad.shape[0])
+                        {
+                            bGrads[] += grad[i, 0 .. $];
+                        }
+                    });
                 }
             });
-        });
+        }
+        else
+        {
+            return new Return(result);
+        }
     }
 
     unittest
@@ -350,6 +366,42 @@ version (all) // linear
         auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
         auto x = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
         auto b = tensor!([3])([100.0f, 200.0f, 300.0f]);
+
+        auto z = linear(x, w, b);
+
+        assert(z.value[0] == [1 * 1 + 2 * 4 + 100, 1 * 2 + 2 * 5 + 200, 1 * 3 + 2 * 6 + 300]);
+        assert(z.value[1] == [3 * 1 + 4 * 4 + 100, 3 * 2 + 4 * 5 + 200, 3 * 3 + 4 * 6 + 300]);
+    }
+    
+    unittest
+    {
+        auto w = tensor!([2, 3], No.gradient)([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+        auto x = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto b = tensor!([3])([100.0f, 200.0f, 300.0f]);
+
+        auto z = linear(x, w, b);
+
+        assert(z.value[0] == [1 * 1 + 2 * 4 + 100, 1 * 2 + 2 * 5 + 200, 1 * 3 + 2 * 6 + 300]);
+        assert(z.value[1] == [3 * 1 + 4 * 4 + 100, 3 * 2 + 4 * 5 + 200, 3 * 3 + 4 * 6 + 300]);
+    }
+    
+    unittest
+    {
+        auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+        auto x = tensor!([0, 2], No.gradient)([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto b = tensor!([3])([100.0f, 200.0f, 300.0f]);
+
+        auto z = linear(x, w, b);
+
+        assert(z.value[0] == [1 * 1 + 2 * 4 + 100, 1 * 2 + 2 * 5 + 200, 1 * 3 + 2 * 6 + 300]);
+        assert(z.value[1] == [3 * 1 + 4 * 4 + 100, 3 * 2 + 4 * 5 + 200, 3 * 3 + 4 * 6 + 300]);
+    }
+    
+    unittest
+    {
+        auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+        auto x = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto b = tensor!([3], No.gradient)([100.0f, 200.0f, 300.0f]);
 
         auto z = linear(x, w, b);
 
