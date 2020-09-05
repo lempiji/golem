@@ -197,7 +197,7 @@ version (all) // tanh
 
 version (all) // relu
 {
-    Tensor!(T, Shape) relu(T, size_t[] Shape)(Tensor!(T, Shape) x)
+    Tensor!(T, Shape, useGradient) relu(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
     {
         import std.algorithm : max;
 
@@ -206,11 +206,18 @@ version (all) // relu
         alias Return = typeof(return);
         alias Value = Return.Value;
 
-        x.usedCount++;
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
 
-        return new typeof(return)(y, (Value grad) {
-            x.backward(grad * x.value.map!(a => T(a > 0 ? 1 : 0)));
-        });
+            return new typeof(return)(y, (Value grad) {
+                x.backward(grad * x.value.map!(a => T(a > 0 ? 1 : 0)));
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
     }
 
     unittest
@@ -234,6 +241,19 @@ version (all) // relu
         assert(x.grads[1, 0] == 0);
         assert(x.grads[1, 1] == 0);
         assert(x.grads[1, 2] == 1.0);
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2, 3], No.gradient)([-1.0, 0.0, 1.0, -2.0, 0.0, 2.0]);
+        auto y = relu(x);
+
+        assert(y.value[0, 0] == 0);
+        assert(y.value[0, 1] == 0);
+        assert(y.value[0, 2] == 1.0);
+        assert(y.value[1, 0] == 0);
+        assert(y.value[1, 1] == 0);
+        assert(y.value[1, 2] == 2.0);
     }
 }
 
