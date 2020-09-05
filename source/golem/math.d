@@ -81,7 +81,7 @@ version (all) // exp
 
 version (all) // sigmoid
 {
-    Tensor!(T, Shape) sigmoid(T, size_t[] Shape)(Tensor!(T, Shape) x)
+    Tensor!(T, Shape, useGradient) sigmoid(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
     {
         import std.math : exp;
 
@@ -90,11 +90,18 @@ version (all) // sigmoid
         alias Return = typeof(return);
         alias Value = Return.Value;
 
-        x.usedCount++;
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
 
-        return new Tensor!(T, Shape)(y, (Value grads) {
-            x.backward(y * (T(1) - y) * grads);
-        });
+            return new Tensor!(T, Shape)(y, (Value grads) {
+                x.backward(y * (T(1) - y) * grads);
+            });
+        }
+        else
+        {
+            return new Tensor!(T, Shape, No.gradient)(y);
+        }
     }
 
     unittest
@@ -117,6 +124,19 @@ version (all) // sigmoid
                 "%s".format(x.grads));
         assert(x.grads[2, 0].approxEqual(y.value[2, 0] * (1.0 - y.value[2, 0])),
                 "%s".format(x.grads));
+    }
+
+    unittest
+    {
+        auto x = tensor!([3, 1], No.gradient)([-1.0f, 0.0f, 1.0f]);
+        auto y = sigmoid(x);
+        
+        import std.format : format;
+        import std.math : exp, approxEqual;
+
+        assert(y.value[0, 0].approxEqual(1.0f / (1.0f + exp(+1.0f))), "%s".format(y.value));
+        assert(y.value[1, 0].approxEqual(1.0f / (1.0f + exp(0.0f))), "%s".format(y.value));
+        assert(y.value[2, 0].approxEqual(1.0f / (1.0f + exp(-1.0f))), "%s".format(y.value));
     }
 }
 
