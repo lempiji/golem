@@ -412,7 +412,7 @@ version (all) // linear
 
 version (all) // sum
 {
-    Tensor!(T, [1]) sum(alias mode = "fast", T, size_t[] Shape)(Tensor!(T, Shape) x)
+    Tensor!(T, [1], useGradient) sum(alias mode = "fast", T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
             if (Shape.length == 2 && Shape[1] == 1)
     {
         import mir.math.sum : mirsum = sum;
@@ -422,24 +422,39 @@ version (all) // sum
         alias Return = typeof(return);
         alias Value = Return.Value;
 
-        x.usedCount++;
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
 
-        return new Return(y, (Value grad) {
-            x.backward((ref xGrads) { xGrads[] += grad; });
-        });
+            return new Return(y, (Value grad) {
+                x.backward((ref xGrads) { xGrads[] += grad; });
+            });
+        }
+        else
+        {
+            return new Return(y);
+        }
     }
 
     unittest
     {
         auto x = tensor!([4, 1])([1.0f, 2.0f, 3.0f, 4.0f]);
         auto s = sum(x);
+        assert(s.value[0] == 10.0f);
 
         assert(x.grads == [[0.0f], [0.0f], [0.0f], [0.0f]]);
         s.backward();
         assert(x.grads == [[1.0f], [1.0f], [1.0f], [1.0f]]);
     }
+    
+    unittest
+    {
+        auto x = tensor!([4, 1], No.gradient)([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto s = sum(x);
+        assert(s.value[0] == 10.0f);
+    }
 
-    Tensor!(T, [Shape[0], 1]) sum(alias mode = "fast", T, size_t[] Shape)(Tensor!(T, Shape) x)
+    Tensor!(T, [Shape[0], 1], useGradient) sum(alias mode = "fast", T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
             if ((Shape.length == 2 && Shape[1] != 1) || (Shape.length > 2))
     {
         import mir.math.sum : mirsum = sum;
@@ -454,16 +469,23 @@ version (all) // sum
         alias Return = typeof(return);
         alias Value = Return.Value;
 
-        x.usedCount++;
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
 
-        return new Return(y, (Value grad) {
-            x.backward((ref xGrads) {
-                foreach (i; 0 .. xGrads.shape[0])
-                {
-                    xGrads[i].flattened[] = grad[i, 0];
-                }
+            return new Return(y, (Value grad) {
+                x.backward((ref xGrads) {
+                    foreach (i; 0 .. xGrads.shape[0])
+                    {
+                        xGrads[i].flattened[] = grad[i, 0];
+                    }
+                });
             });
-        });
+        }
+        else
+        {
+            return new Return(y);
+        }
     }
 
     unittest
@@ -498,6 +520,15 @@ version (all) // sum
         assert(x.grads[1, 0, 1] == 1.0);
         assert(x.grads[1, 1, 0] == 1.0);
         assert(x.grads[1, 1, 1] == 1.0);
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2, 2, 2], No.gradient)([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        Tensor!(double, [2, 1], No.gradient) y = sum(x);
+
+        assert(y.value[0, 0] == 10.0);
+        assert(y.value[1, 0] == 26.0);
     }
 }
 
