@@ -26,7 +26,7 @@ unittest
     auto fc1 = new Linear!(float, 2, 6);
     auto fc2 = new Linear!(float, 6, 1);
 
-    auto trainer = createTrainer!SGD(fc1, fc2);
+    auto optimizer = createOptimizer!SGD(fc1, fc2);
 
     auto forward(T)(T x)
     {
@@ -51,11 +51,11 @@ unittest
         auto output = forward(inputs);
         auto loss = mse(output, labels);
 
-        fc1.resetGrads();
-        fc2.resetGrads();
+        optimizer.resetGrads();
+
         loss.backward();
 
-        trainer.trainStep();
+        optimizer.trainStep();
     }
     auto lossLast = mse(forward(inputs), labels);
 
@@ -84,6 +84,14 @@ class SGD(Params...)
         }
     }
 
+    void resetGrads()
+    {
+        foreach (p; params)
+        {
+            p.resetGrads();
+        }
+    }
+
     void trainStep()
     {
         const learningRate = config.learningRate;
@@ -97,14 +105,14 @@ class SGD(Params...)
     }
 }
 
-auto createTrainer(alias Trainer, Params...)(Params params) if (Params.length > 0)
+auto createOptimizer(alias Optimizer, Params...)(Params params) if (Params.length > 0)
 {
     enum firstPos = staticIndexOf!(hasParameters, Params);
 
     static if (firstPos != -1)
     {
         // dfmt off
-        return createTrainer!Trainer(
+        return createOptimizer!Optimizer(
             params[0 .. firstPos],
             params[firstPos].parameters,
             params[firstPos + 1 .. $]
@@ -115,8 +123,8 @@ auto createTrainer(alias Trainer, Params...)(Params params) if (Params.length > 
     {
         static if (allSatisfy!(isTensor, Params))
         {
-            alias TrainerImpl = Trainer!(Params);
-            return new TrainerImpl(params);
+            alias OptimizerImpl = Optimizer!(Params);
+            return new OptimizerImpl(params);
         }
         else
         {
@@ -140,8 +148,13 @@ unittest
     }
 
     auto model = new Model;
-    auto trainer = createTrainer!SGD(model);
-    assert(trainer !is null);
+    auto optimizer = createOptimizer!SGD(model);
+    assert(optimizer !is null);
+
+    model.weight.grads[] = 1.0f;
+    assert(model.weight.grads == [[1.0f, 1.0f], [1.0f, 1.0f]]);
+    optimizer.resetGrads();
+    assert(model.weight.grads == [[0.0f, 0.0f], [0.0f, 0.0f]]);
 }
 
 unittest
@@ -151,8 +164,8 @@ unittest
     auto fc1 = new Linear!(float, 4, 4);
     auto fc2 = new Linear!(float, 4, 2);
 
-    auto trainer = createTrainer!SGD(fc1, fc2);
-    assert(trainer !is null);
+    auto optimizer = createOptimizer!SGD(fc1, fc2);
+    assert(optimizer !is null);
 }
 
 
