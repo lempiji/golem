@@ -107,6 +107,8 @@ class SGD(Params...)
 
 auto createOptimizer(alias Optimizer, Params...)(Params params) if (Params.length > 0)
 {
+    import golem.util : staticIndexOf;
+
     enum firstPos = staticIndexOf!(hasParameters, Params);
 
     static if (firstPos != -1)
@@ -170,34 +172,3 @@ unittest
 
 
 private alias mapValue(T) = T.Value;
-
-private template staticIndexOf(alias F, Ts...)
-{
-    static if (Ts.length == 0)
-    {
-        enum staticIndexOf = -1;
-    }
-    else
-    {
-        enum staticIndexOf = staticIndexOfImpl!(F, 0, Ts);
-    }
-}
-
-private template staticIndexOfImpl(alias F, size_t pos, Ts...)
-{
-    static if (Ts.length == 0)
-    {
-        enum staticIndexOfImpl = -1;
-    }
-    else
-    {
-        static if (F!(Ts[0]))
-        {
-            enum staticIndexOfImpl = pos;
-        }
-        else
-        {
-            enum staticIndexOfImpl = staticIndexOfImpl!(F, pos + 1, Ts[1 .. $]);
-        }
-    }
-}
