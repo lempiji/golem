@@ -532,6 +532,130 @@ version (all) // sum
     }
 }
 
+version (all) // mean
+{
+    Tensor!(T, [1], useGradient) mean(alias mode = "fast", T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+            if (Shape.length == 2 && Shape[1] == 1)
+    {
+        import mir.math.sum : mirsum = sum;
+
+        const n = elementSize(x.value.shape);
+        auto y = slice!T([1], mirsum!mode(x.value) / n);
+
+        alias Return = typeof(return);
+        alias Value = Return.Value;
+
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
+
+            return new Return(y, (Value grad) {
+                x.backward((ref xGrads) { xGrads[] += grad / n; });
+            });
+        }
+        else
+        {
+            return new Return(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([4, 1])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto s = mean(x);
+        assert(s.value[0] == 2.5f);
+
+        assert(x.grads == [[0.0f], [0.0f], [0.0f], [0.0f]]);
+        s.backward();
+        assert(x.grads == [[0.25f], [0.25f], [0.25f], [0.25f]]);
+    }
+    
+    unittest
+    {
+        auto x = tensor!([4, 1], No.gradient)([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto s = mean(x);
+        assert(s.value[0] == 2.5f);
+    }
+
+    Tensor!(T, [Shape[0], 1], useGradient) mean(alias mode = "fast", T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+            if ((Shape.length == 2 && Shape[1] != 1) || (Shape.length > 2))
+    {
+        import mir.math.sum : mirsum = sum;
+
+        const batchSize = x.value.shape[0];
+        const n = elementSize(x.value.shape[1 .. $]);
+        auto y = uninitSlice!T([batchSize, 1]);
+        foreach (i; 0 .. batchSize)
+        {
+            y[i, 0] = mirsum!mode(x.value[i]) / n;
+        }
+
+        alias Return = typeof(return);
+        alias Value = Return.Value;
+
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
+
+            return new Return(y, (Value grad) {
+                x.backward((ref xGrads) {
+                    foreach (i; 0 .. xGrads.shape[0])
+                    {
+                        xGrads[i].flattened[] = grad[i, 0] / n;
+                    }
+                });
+            });
+        }
+        else
+        {
+            return new Return(y);
+        }
+    }
+
+    unittest
+    {
+        import std.format : format;
+
+        auto x = tensor!([0, 4])([0.5, 1.0, 1.5, 2.0]);
+        auto y = mean(x);
+
+        assert(y.staticShape == [0, 1]);
+        assert(y.value[0, 0] == 1.25);
+
+        assert(x.grads == [[0, 0, 0, 0]], "%s".format(x.grads));
+        y.backward();
+        assert(x.grads == [[0.25, 0.25, 0.25, 0.25]], "%s".format(x.grads));
+    }
+
+    unittest
+    {
+        auto x = tensor!([2, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        Tensor!(double, [2, 1]) y = mean(x);
+
+        assert(y.value[0, 0] == 2.5);
+        assert(y.value[1, 0] == 6.5);
+
+        y.backward();
+        assert(x.grads[0, 0, 0] == 0.25);
+        assert(x.grads[0, 0, 1] == 0.25);
+        assert(x.grads[0, 1, 0] == 0.25);
+        assert(x.grads[0, 1, 1] == 0.25);
+        assert(x.grads[1, 0, 0] == 0.25);
+        assert(x.grads[1, 0, 1] == 0.25);
+        assert(x.grads[1, 1, 0] == 0.25);
+        assert(x.grads[1, 1, 1] == 0.25);
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2, 2, 2], No.gradient)([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        Tensor!(double, [2, 1], No.gradient) y = mean(x);
+
+        assert(y.value[0, 0] == 2.5);
+        assert(y.value[1, 0] == 6.5);
+    }
+}
+
 version (all) // flatten
 {
     Tensor!(T, [Shape[0], elementSize(Shape[1 .. $])], useGradient) flatten(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
