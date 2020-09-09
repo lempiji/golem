@@ -65,7 +65,7 @@ unittest
 
 struct SGDConfig
 {
-    float learningRate = 0.05;
+    float learningRate = 0.01;
     float momentumRate = 0.9;
 }
 
