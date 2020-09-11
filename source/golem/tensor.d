@@ -3,7 +3,7 @@ module golem.tensor;
 import golem.util;
 
 import mir.ndslice;
-import numir;
+static import numir;
 
 import std.typecons : Flag, Yes, No;
 
@@ -137,7 +137,7 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
 
         this(Value value, void delegate(Value grad) gradFn)
         {
-            this(value, zeros_like(value), gradFn);
+            this(value, numir.zeros_like(value), gradFn);
         }
 
         private this(Value value, Value grads, void delegate(Value grad) gradFn)
@@ -497,4 +497,72 @@ unittest
     auto x = a + b;
     auto y = a - b;
     auto z = a * b;
+}
+
+///
+Tensor!(T, Shape, No.gradient) ones(T, size_t[] Shape)()
+if (Shape[0] != 0)
+{
+    return new typeof(return)(numir.ones!T(Shape));
+}
+
+///ditto
+Tensor!(T, Shape, No.gradient) ones(T, size_t[] Shape)(size_t batchSize)
+if (Shape[0] == 0)
+{
+    return new typeof(return)(numir.ones!T([batchSize, expandShape!(Shape[1 .. $])]));
+}
+
+///ditto
+unittest
+{
+    auto o = ones!(float, [2, 2]);
+    assert(!canBackward!(typeof(o)));
+    assert(o.shape == [2, 2]);
+    assert(o.value[0, 0] == 1);
+    assert(o.value[0, 1] == 1);
+    assert(o.value[1, 0] == 1);
+    assert(o.value[1, 1] == 1);
+}
+
+///ditto
+unittest
+{
+    auto o = ones!(float, [0, 2])(2);
+    assert(!canBackward!(typeof(o)));
+    assert(o.shape == [2, 2]);
+    assert(o.value[0, 0] == 1);
+    assert(o.value[0, 1] == 1);
+    assert(o.value[1, 0] == 1);
+    assert(o.value[1, 1] == 1);
+}
+
+Tensor!(T, Shape, No.gradient) onesLike(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+{
+    static if (x.staticShape[0] == 0)
+    {
+        return ones!(T, Shape)(x.shape[0]);
+    }
+    else
+    {
+        return ones!(T, Shape)();
+    }
+}
+
+unittest
+{
+    auto x = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+    auto x1 = onesLike(x);
+
+    assert(x.shape == x1.shape);
+    assert(x1.value == ones!(float, [2, 2]).value);
+}
+
+unittest
+{
+    auto x = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+    auto x1 = onesLike(x);
+
+    assert(x.shape == x1.shape);
+    assert(x1.value == ones!(float, [2, 3]).value);
 }
