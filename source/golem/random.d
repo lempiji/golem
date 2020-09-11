@@ -52,3 +52,5 @@ unittest
     auto x = uniform!(float, [0, 4])(3);
     assert(x.shape == [3, 4]);
 }
+
+alias randn = uniform;
