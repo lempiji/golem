@@ -719,11 +719,12 @@ version (all) // softmaxCrossEntropy
         import std.math : exp, log;
 
         const batchSize = x.shape[0];
-        const T a = zip(x.value, y.value).map!"a*b".sum!"fast"();
         T[] u = new T[batchSize];
+        T a = T(0);
         T b = T(0);
         foreach (i; 0 .. batchSize)
         {
+            a += zip(x.value[i], y.value[i]).map!"a*b"().sum!"fast"();
             const temp = x.value[i].map!exp.sum!"fast"();
             u[i] = 1 / temp;
             b += log(temp);
@@ -740,7 +741,8 @@ version (all) // softmaxCrossEntropy
                 const c = grads[0] / batchSize;
                 foreach (i; 0 .. batchSize)
                 {
-                    xGrads[i, 0 .. $] += (x.value[i].map!exp() * u[i] - y.value[i]) * c;
+                    const ut = u[i];
+                    xGrads[i][] += (x.value[i].map!(a => exp(a) * ut) - y.value[i]) * c;
                 }
             });
         });
