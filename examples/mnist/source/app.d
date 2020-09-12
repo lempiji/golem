@@ -50,12 +50,19 @@ void main()
 		}
 
 		auto trainBatch = batchTensor(trainDataset);
-		auto trainLoss = model.loss(model.forward(trainBatch[0]), trainBatch[1]);
+		auto trainOutput = model.forward(trainBatch[0]);
+		auto trainLoss = model.loss(trainOutput, trainBatch[1]);
+
 		auto testBatch = batchTensor(testDataset);
-		auto testLoss = model.loss(model.forward(testBatch[0]), testBatch[1]);
+		auto testOutput = model.forward(testBatch[0]);
+		auto testLoss = model.loss(testOutput, testBatch[1]);
 
 		sw.stop();
+		
+		writeln("----------");
 		writefln!"trainLoss/testLoss : %f / %f  %s[secs/epoch]"(mean(trainLoss).value[0], mean(testLoss).value[0], sw.peek().total!"seconds");
+		writefln!"train accuracy %.2f%%"(100 * accuracy(trainOutput, trainBatch[1]));
+		writefln!"test accuracy %.2f%%"(100 * accuracy(testOutput, testBatch[1]));
 
 		import std.file : fwrite = write;
 
