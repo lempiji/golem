@@ -60,7 +60,7 @@ void main()
 		sw.stop();
 		
 		writeln("----------");
-		writefln!"trainLoss/testLoss : %f / %f  %s[secs/epoch]"(mean(trainLoss).value[0], mean(testLoss).value[0], sw.peek().total!"seconds");
+		writefln!"trainLoss/testLoss : %f / %f  %s[secs/epoch]"(trainLoss.value[0], testLoss.value[0], sw.peek().total!"seconds");
 		writefln!"train accuracy %.2f%%"(100 * accuracy(trainOutput, trainBatch[1]));
 		writefln!"test accuracy %.2f%%"(100 * accuracy(testOutput, testBatch[1]));
 
@@ -95,7 +95,7 @@ in(images.length == labels.length * 784)
 	return result.data;
 }
 
-Tuple!(Tensor!(float, [0, 28, 28]), Tensor!(float, [0, 10])) batchTensor(R)(R dataset)
+Tuple!(Tensor!(float, [0, 28, 28]), Tensor!(float, [0, 10], UseGradient.no)) batchTensor(R)(R dataset)
 {
 	import std.array : appender;
 	auto input = appender!(float[]);
@@ -108,7 +108,7 @@ Tuple!(Tensor!(float, [0, 28, 28]), Tensor!(float, [0, 10])) batchTensor(R)(R da
 	}
 
 	auto inputTensor = tensor!([0, 28, 28])(input.data);
-	auto labelTensor = tensor!([0, 10])(label.data);
+	auto labelTensor = tensor!([0, 10], UseGradient.no)(label.data);
 
 	return tuple(inputTensor, labelTensor);
 }
@@ -136,7 +136,6 @@ class Model
 
 	auto loss(T, U)(T output, U label)
 	{
-		auto diff = label - output;
-		return mean(diff * diff);
+		return softmaxCrossEntropy(output, label);
 	}
 }

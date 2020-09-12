@@ -3,7 +3,7 @@ module golem.metrics;
 import golem.tensor;
 
 /// calc accuracy for 1 class (single 0-1 output)
-float accuracy(T, size_t[] Shape)(Tensor!(T, Shape) output, Tensor!(T, Shape) label)
+float accuracy(T, size_t[] Shape, UseGradient useGrad1, UseGradient useGrad2)(Tensor!(T, Shape, useGrad1) output, Tensor!(T, Shape, useGrad2) label)
 if (Shape.length == 2 && Shape[1] == 1)
 in(output.shape[0] == label.shape[0])
 {
@@ -41,7 +41,7 @@ unittest
 
 
 /// calc accuracy for multi class (multiple 0-1 output)
-float accuracy(T, size_t[] Shape)(Tensor!(T, Shape) output, Tensor!(T, Shape) label)
+float accuracy(T, size_t[] Shape, UseGradient useGrad1, UseGradient useGrad2)(Tensor!(T, Shape, useGrad1) output, Tensor!(T, Shape, useGrad2) label)
 if (Shape.length == 2 && Shape[1] > 1)
 in(output.shape[0] == label.shape[0])
 {
