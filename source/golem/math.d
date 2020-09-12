@@ -705,3 +705,85 @@ version (all) // flatten
         Tensor!(double, [2, 4], No.gradient) y = flatten(x);
     }
 }
+
+version (all) // softmaxCrossEntropy
+{
+    Tensor!(T, [1]) softmaxCrossEntropy(T, size_t[] Shape1, size_t[] Shape2, UseGradient useGrad)(Tensor!(T, Shape1, useGrad) x, Tensor!(T, Shape2, UseGradient.no) y)
+    if (Shape1.length == 2 && Shape2.length == 2 && Shape1[1] == Shape2[1])
+    {
+        static assert(Shape1[0] == 0 || Shape2[0] == 0 || Shape1[0] == Shape2[0]);
+        assert(x.shape[0] == y.shape[0]);
+
+        import mir.ndslice : map, zip;
+        import mir.math.sum : sum;
+        import std.math : exp, log;
+
+        const batchSize = x.shape[0];
+        const T a = zip(x.value, y.value).map!"a*b".sum!"fast"();
+        T[] u = new T[batchSize];
+        T b = T(0);
+        foreach (i; 0 .. batchSize)
+        {
+            const temp = x.value[i].map!exp.sum!"fast"();
+            u[i] = 1 / temp;
+            b += log(temp);
+        }
+
+        auto z = slice([1], (b - a) / batchSize);
+
+        x.usedCount++;
+        alias Return = typeof(return);
+        alias Value = Return.Value;
+
+        return new Return(z, (Value grads) {
+            x.backward((ref xGrads) {
+                const c = grads[0] / batchSize;
+                foreach (i; 0 .. batchSize)
+                {
+                    xGrads[i, 0 .. $] += (x.value[i].map!exp() * u[i] - y.value[i]) * c;
+                }
+            });
+        });
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 3])([
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]);
+        auto y = tensor!([0, 3], UseGradient.no)([
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]);
+
+        auto loss = softmaxCrossEntropy(x, y);
+        static assert(loss.shape == [1]);
+
+        import std.math : approxEqual, E;
+
+        assert(loss.value[0].approxEqual(0.688236607616066));
+
+        loss.backward();
+
+        enum double g1 = 1.0 / (8.0 + 4 * E);
+        enum double g2 = -1.0 / (4.0 + 2 * E);
+
+        assert(x.grads[0, 0].approxEqual(1.0 / 12));
+        assert(x.grads[0, 1].approxEqual(1.0 / 12));
+        assert(x.grads[0, 2].approxEqual(-1.0 / 6));
+        assert(x.grads[1, 0].approxEqual(g1));
+        assert(x.grads[1, 1].approxEqual(g1));
+        assert(x.grads[1, 2].approxEqual(g2));
+        assert(x.grads[2, 0].approxEqual(g1));
+        assert(x.grads[2, 1].approxEqual(g2));
+        assert(x.grads[2, 2].approxEqual(g1));
+        assert(x.grads[3, 0].approxEqual(g2));
+        assert(x.grads[3, 1].approxEqual(g1));
+        assert(x.grads[3, 2].approxEqual(g1));
+    }
+}
