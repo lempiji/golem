@@ -54,3 +54,46 @@ unittest
 }
 
 alias randn = uniform;
+
+
+Tensor!(T, Shape, UseGradient.no) normal(T, size_t[] Shape)()
+if (Shape[0] != 0)
+{
+    import mir.ndslice : diagonal, reshape;
+    import mir.random.variable : normalVar;
+    import mir.random.engine : rne;
+
+    auto result = uninitSlice!T(Shape);
+    auto ngen = normalVar!T();
+    foreach (ref x; result.flattened[])
+    {
+        x = ngen(rne);
+    }
+
+    return new Tensor!(T, Shape, UseGradient.no)(result);
+}
+
+Tensor!(T, Shape, UseGradient.no) normal(T, size_t[] Shape)(size_t batchSize)
+if (Shape[0] == 0)
+{
+    assert(batchSize > 0);
+
+    import mir.ndslice : diagonal, reshape;
+    import mir.random.variable : normalVar;
+    import mir.random.engine : rne;
+
+    auto result = uninitSlice!T([batchSize, expandShape!(Shape[1 .. $])]);
+    auto ngen = normalVar!T();
+    foreach (ref x; result.flattened[])
+    {
+        x = ngen(rne);
+    }
+
+    return new Tensor!(T, Shape, UseGradient.no)(result);
+}
+
+unittest
+{
+    auto m = normal!(float, [2, 3]);
+    auto n = normal!(float, [0, 4])(4);
+}
