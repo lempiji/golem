@@ -79,6 +79,55 @@ version (all) // exp
     }
 }
 
+version (all)
+{
+    Tensor!(T, Shape, useGradient) log(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+    {
+        import std.math : stdlog = log;
+        import mir.ndslice : slice, map;
+
+        auto y = slice(x.value.map!(a => T(stdlog(a))));
+
+        static if (useGradient)
+        {
+            x.usedCount++;
+
+            alias Return = typeof(return);
+            alias Value = Return.Value;
+            return new Return(y, (Value grads) {
+                x.backward((ref xGrads) { xGrads[] += grads[] / x.value[]; });
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2])([
+            [1.0, 2.0],
+            [3.0, 4.0],
+        ]);
+        auto y = log(x);
+
+        import std.math : stdlog = log, approxEqual;
+
+        assert(y.value[0, 0].approxEqual(stdlog(1.0)));
+        assert(y.value[0, 1].approxEqual(stdlog(2.0)));
+        assert(y.value[1, 0].approxEqual(stdlog(3.0)));
+        assert(y.value[1, 1].approxEqual(stdlog(4.0)));
+
+        y.backward();
+
+        assert(x.grads[0, 0].approxEqual(1.0 / 1.0));
+        assert(x.grads[0, 1].approxEqual(1.0 / 2.0));
+        assert(x.grads[1, 0].approxEqual(1.0 / 3.0));
+        assert(x.grads[1, 1].approxEqual(1.0 / 4.0));
+    }
+}
+
 version (all) // sigmoid
 {
     Tensor!(T, Shape, useGradient) sigmoid(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
