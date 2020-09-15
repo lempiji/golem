@@ -308,6 +308,24 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
         }
     }
 
+    Tensor!(T, Shape, hasGradient) opUnary(string op : "-")()
+    {
+        auto y = slice(-this.value[]);
+
+        static if (hasGradient)
+        {
+            this.usedCount++;
+
+            return new Tensor!(T, Shape)(y, (Value grads) {
+                this.backward(-grads[]);
+            });
+        }
+        else
+        {
+            return new Tensor!(T, Shape, No.gradient)(y);
+        }
+    }
+
     invariant()
     {
         foreach (i; 0 .. Shape.length)
@@ -444,6 +462,34 @@ unittest
     assert(z.value[0, 1] == -1.0f);
     assert(z.value[1, 0] == -1.0f);
     assert(z.value[1, 1] == -1.0f);
+}
+
+unittest
+{
+    auto x = tensor!([2, 2])([
+        [1.0, 2.0],
+        [3.0, 4.0],
+    ]);
+    auto y = -x;
+
+    assert(y.value[0, 0] == -1.0);
+    assert(y.value[0, 1] == -2.0);
+    assert(y.value[1, 0] == -3.0);
+    assert(y.value[1, 1] == -4.0);
+}
+
+unittest
+{
+    auto x = tensor!([0, 2], No.gradient)([
+        [1.0, 2.0],
+        [3.0, 4.0],
+    ]);
+    auto y = -x;
+
+    assert(y.value[0, 0] == -1.0);
+    assert(y.value[0, 1] == -2.0);
+    assert(y.value[1, 0] == -3.0);
+    assert(y.value[1, 1] == -4.0);
 }
 
 unittest
