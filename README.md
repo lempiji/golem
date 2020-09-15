@@ -29,6 +29,59 @@ auto z = x + y;
 assert(z.value[0, 0] == 0.0);
 ```
 
+
+### Tensor Shape
+
+```d
+// 3 x 2
+auto x = tensor!([3, 2])(
+    [1.0, 2.0],
+    [3.0, 4.0],
+    [5.0, 6.0],
+);
+// N x 2
+auto y = tensor!([0, 2])([
+    [1.0, 2.0],
+    [3.0, 4.0],
+]);
+
+assert(x.shape == [3, 2]);
+assert(y.shape == [2, 2]);
+
+static assert(x.staticShape == [3, 2]);
+static assert(y.staticShape == [0, 2]);
+
+assert(x.runtimeShape == [3, 2]);
+assert(y.runtimeShape == [2, 2]);
+
+const batchSize = x.shape[0];
+```
+
+```d
+auto x = tensor!([2, 3])(
+        [1.0, 2.0],
+        [3.0, 4.0],
+        [5.0, 6.0],
+    );
+auto y = tensor!([2, 2])([
+        [1.0, 2.0],
+        [3.0, 4.0],
+    ]);
+auto z = tensor!([0, 2])([
+        [1.0, 2.0],
+        [3.0, 4.0],
+    ]);
+
+// can not compile
+static assert(!__traits(compiles, {
+        auto a = x + y;
+    }));
+
+// runtime error
+assertThrown!AssertError(x + z);
+```
+
+
 ### Linear
 
 ```d
