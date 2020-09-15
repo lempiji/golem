@@ -58,7 +58,7 @@ const batchSize = x.shape[0];
 ```
 
 ```d
-auto x = tensor!([2, 3])(
+auto x = tensor!([3, 2])(
         [1.0, 2.0],
         [3.0, 4.0],
         [5.0, 6.0],
