@@ -18,9 +18,9 @@ void main()
 	];
 
 	auto net = new Model();
-	auto trainer = createTrainer!SGD(net);
+	auto optimizer = createOptimizer!SGD(net);
 	
-	foreach (epoch; 0 .. 2000)
+	foreach (epoch; 0 .. 20_000)
 	{
 		foreach (data; dataset.randomCover().chunks(2))
 		{
@@ -31,10 +31,9 @@ void main()
 			auto y = net.forward(x);
 			auto loss = net.loss(y, label);
 
-			net.resetGrads();
+			optimizer.resetGrads();
 			loss.backward();
-			
-			trainer.trainStep();
+			optimizer.trainStep();
 		}
 	}
 
