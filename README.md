@@ -1,8 +1,10 @@
 # golem
 
-WIP
+![D](https://github.com/lempiji/golem/workflows/D/badge.svg)
 
 ## Features
+
+WIP
 
 - Computational graph (autograd)
 - A statically size checked slice
