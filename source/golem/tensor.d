@@ -268,6 +268,7 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
     }
 
     Tensor!(T, Shape, commonGradientType!(typeof(this), RTensor)) opBinary(string op : "*", RTensor)(RTensor rhs)
+    if (isTensor!RTensor)
     {
         import std.format : format;
         static assert(testCompatibleStaticShape(Shape, RTensor.staticShape), format!`Mismatch static shape %s != %s`(Shape, RTensor.staticShape));
@@ -305,6 +306,43 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
             {
                 return new Tensor!(T, Shape, No.gradient)(y);
             }
+        }
+    }
+
+    Tensor!(T, Shape, hasGradient) opBinary(string op : "*")(T rhs)
+    {
+        auto y = slice(this.value[] * rhs);
+
+        static if (canBackward!(typeof(this)))
+        {
+            this.usedCount++;
+
+            return new typeof(this)(y, (grads) {
+                this.backward(grads[] * rhs);
+            });
+        }
+        else
+        {
+            return new typeof(this)(y);
+        }
+    }
+
+    
+    Tensor!(T, Shape, hasGradient) opBinaryRight(string op : "*")(T lhs)
+    {
+        auto y = slice(lhs * this.value[]);
+
+        static if (canBackward!(typeof(this)))
+        {
+            this.usedCount++;
+
+            return new typeof(this)(y, (grads) {
+                this.backward(lhs * grads[]);
+            });
+        }
+        else
+        {
+            return new typeof(this)(y);
         }
     }
 
@@ -490,6 +528,38 @@ unittest
     assert(y.value[0, 1] == -2.0);
     assert(y.value[1, 0] == -3.0);
     assert(y.value[1, 1] == -4.0);
+}
+
+unittest
+{
+    auto x = tensor!([2, 2, 2])([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]);
+    auto y = 3.0 * x;
+    auto z = x * 0.5;
+
+    import std.math : approxEqual;
+
+    assert(y.value[0, 0, 0].approxEqual(0.1 * 3.0));
+    assert(y.value[0, 0, 1].approxEqual(0.2 * 3.0));
+    assert(y.value[0, 1, 0].approxEqual(0.3 * 3.0));
+    assert(y.value[0, 1, 1].approxEqual(0.4 * 3.0));
+    assert(y.value[1, 0, 0].approxEqual(0.5 * 3.0));
+    assert(y.value[1, 0, 1].approxEqual(0.6 * 3.0));
+    assert(y.value[1, 1, 0].approxEqual(0.7 * 3.0));
+    assert(y.value[1, 1, 1].approxEqual(0.8 * 3.0));
+    
+    assert(z.value[0, 0, 0].approxEqual(0.1 * 0.5));
+    assert(z.value[0, 0, 1].approxEqual(0.2 * 0.5));
+    assert(z.value[0, 1, 0].approxEqual(0.3 * 0.5));
+    assert(z.value[0, 1, 1].approxEqual(0.4 * 0.5));
+    assert(z.value[1, 0, 0].approxEqual(0.5 * 0.5));
+    assert(z.value[1, 0, 1].approxEqual(0.6 * 0.5));
+    assert(z.value[1, 1, 0].approxEqual(0.7 * 0.5));
+    assert(z.value[1, 1, 1].approxEqual(0.8 * 0.5));
+
+    y.backward();
+    z.backward();
+
+    assert(x.grads.flattened[] == [3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5]);
 }
 
 unittest
