@@ -25,9 +25,13 @@ jobs:
 
     - name: 'Build & Test'
       run: |
-        # Build the project, with its main file included, without unittests
         dub build --compiler=$DC
-        # Build and run tests, as defined by `unittest` configuration
-        # In this mode, `mainSourceFile` is excluded and `version (unittest)` are included
-        # See https://dub.pm/package-format-json.html#configurations
         dub test --compiler=$DC
+
+    - name: 'Build Examples'
+      run: |
+        cd ./examples
+        cd ./xor
+        dub build --compiler=$DC
+        cd ../mnist
+        dub build --compiler=$DC
