@@ -61,11 +61,11 @@ template commonGradientType(T1, T2)
 {
     static if (canBackward!T1 || canBackward!T2)
     {
-        enum commonGradientType = Yes.gradient;
+        enum commonGradientType = UseGradient.yes;
     }
     else
     {
-        enum commonGradientType = No.gradient;
+        enum commonGradientType = UseGradient.no;
     }
 }
 
@@ -274,19 +274,40 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
         static assert(testCompatibleStaticShape(Shape, RTensor.staticShape), format!`Mismatch static shape %s != %s`(Shape, RTensor.staticShape));
         assert(testCompatibleStaticShape(shape, rhs.shape), format!"Mismatch runtime shape %s != %s"(shape, rhs.shape));
 
-        if (this is rhs)
+        static if (is(typeof(this) == typeof(rhs)))
         {
-            auto y = slice(this.value * this.value);
-            static if (canBackward!(typeof(this))) this.usedCount++;
-            static if (canBackward!(typeof(this)))
+            if (this is rhs)
             {
-                return new Tensor!(T, Shape)(y, (Value grads) {
-                    this.backward(2 * this.value * grads);
-                });
+                auto y = slice(this.value * this.value);
+                static if (canBackward!(typeof(this)))
+                {
+                    this.usedCount++;
+                    return new Tensor!(T, Shape)(y, (Value grads) {
+                        this.backward(2 * this.value * grads);
+                    });
+                }
+                else
+                {
+                    return new Tensor!(T, Shape, No.gradient)(y);
+                }
             }
             else
             {
-                return new Tensor!(T, Shape, No.gradient)(y);
+                auto y = slice(this.value * rhs.value);
+                static if (canBackward!(typeof(this))) this.usedCount++;
+                static if (canBackward!(typeof(rhs))) rhs.usedCount++;
+
+                static if (canBackward!(typeof(this)) || canBackward!(typeof(rhs)))
+                {
+                    return new Tensor!(T, Shape)(y, (Value grads) {
+                        static if (canBackward!(typeof(this))) this.backward(rhs.value * grads);
+                        static if (canBackward!(typeof(rhs))) rhs.backward(this.value * grads);
+                    });
+                }
+                else
+                {
+                    return new Tensor!(T, Shape, No.gradient)(y);
+                }
             }
         }
         else
@@ -681,4 +702,12 @@ unittest
 
     assert(x.shape == x1.shape);
     assert(x1.value == ones!(float, [2, 3]).value);
+}
+
+unittest
+{
+    auto x = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+    auto x1 = onesLike(x);
+
+    assert(x !is x1);
 }

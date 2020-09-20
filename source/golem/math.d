@@ -838,3 +838,62 @@ version (all) // softmaxCrossEntropy
         assert(x.grads[3, 2].approxEqual(g1));
     }
 }
+
+version (all) // dropout
+{
+    Tensor!(T, Shape, useGradient) dropout(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x, float rate, bool isTrain)
+    {
+        import std : roundTo;
+        import golem.util : elementSize;
+        import mir.ndslice : flattened;
+
+        enum size = elementSize(Shape[1 .. $]);
+        const dropSize = roundTo!size_t(size * (1 - rate));
+
+        if (isTrain)
+        {
+            auto filter = onesLike(x);
+            foreach (i; 0 .. x.shape[0])
+            {
+                import std.random : uniform;
+
+                auto row = filter.value[i][].flattened;
+                foreach (j; 0 .. dropSize)
+                {
+                    row[uniform(0, size)] = 0;
+                }
+            }
+            return filter * x;
+        }
+        else
+        {
+            const p = T(size - dropSize) / size;
+            return p * x;
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        auto y = dropout(x, 0.5, true);
+        auto z = dropout(x, 0.5, false);
+
+        import std.algorithm : count;
+
+        const t = y.value.flattened[].count(0);
+        assert(t >= 2); // batchSize * 1
+        assert(t <= 2 * 2); // batchSize * round(4 * 0.5)
+
+        import std.math : round, approxEqual;
+
+        const a = (4 - round(4 * 0.5)) / 4;
+        assert(z.value[0, 0, 0].approxEqual(1.0 * a));
+        assert(z.value[0, 0, 1].approxEqual(2.0 * a));
+        assert(z.value[0, 1, 0].approxEqual(3.0 * a));
+        assert(z.value[0, 1, 1].approxEqual(4.0 * a));
+        assert(z.value[1, 0, 0].approxEqual(5.0 * a));
+        assert(z.value[1, 0, 1].approxEqual(6.0 * a));
+        assert(z.value[1, 1, 0].approxEqual(7.0 * a));
+        assert(z.value[1, 1, 1].approxEqual(8.0 * a));
+    }
+}
