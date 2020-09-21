@@ -130,7 +130,7 @@ class Model
 	auto forward(T)(T x)
 	{
 		auto h1 = relu(fc1(flatten(x)));
-		auto h2 = relu(fc2(h1));
+		auto h2 = fc2(h1);
 		return h2;
 	}
 
