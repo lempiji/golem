@@ -67,6 +67,7 @@ struct SGDConfig
 {
     float learningRate = 0.01;
     float momentumRate = 0.9;
+    float weightDecay = 0;
 }
 
 class SGD(Params...)
@@ -96,11 +97,37 @@ class SGD(Params...)
     {
         const learningRate = config.learningRate;
         const momentumRate = config.momentumRate;
+        const weightDecay = config.weightDecay;
 
-        foreach (i, p; params)
+        if (momentumRate != 0 && weightDecay != 0)
         {
-            diffs[i][] = momentumRate * diffs[i][] + p.grads[];
-            p.value[] -= learningRate * diffs[i][];
+            foreach (i, p; params)
+            {
+                diffs[i][] = momentumRate * diffs[i][] + p.grads[];
+                p.value[] -= learningRate * diffs[i][] + weightDecay * p.value[];
+            }
+        }
+        else if (momentumRate != 0)
+        {
+            foreach (i, p; params)
+            {
+                diffs[i][] = momentumRate * diffs[i][] + p.grads[];
+                p.value[] -= learningRate * diffs[i][];
+            }
+        }
+        else if (weightDecay != 0)
+        {
+            foreach (i, p; params)
+            {
+                p.value[] -= learningRate * p.grads[] + weightDecay * p.value[];
+            }
+        }
+        else
+        {
+            foreach (i, p; params)
+            {
+                p.value[] -= learningRate * p.grads[];
+            }
         }
     }
 }
