@@ -244,6 +244,61 @@ version (all) // tanh
     }
 }
 
+version (all) // softplus
+{
+    Tensor!(T, Shape, useGradient) softplus(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+    {
+        import std.math : stdlog = log, stdexp = exp;
+
+        auto y = slice(x.value.map!(a => T(stdlog(1 + stdexp(a)))));
+
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
+
+            return new typeof(return)(y, (Slice!(T*, Shape.length) grads) {
+                x.backward(x.value.map!(a => (stdexp(a) / (stdexp(a) + 1))) * grads);
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([2])([-1.0f, 1.0f]);
+        auto y = softplus(x);
+
+        import std.math : stdlog = log, stdexp = exp, approxEqual;
+
+        assert(y.value[0].approxEqual(stdlog(1 + stdexp(-1.0f))));
+        assert(y.value[1].approxEqual(stdlog(1 + stdexp(1.0f))));
+
+        y.resetGrads();
+        y.backward();
+
+        import std : format;
+
+        assert(x.grads[0].approxEqual(stdexp(-1.0f) / (stdexp(-1.0f) + 1)),
+                "%s : %s".format(x.grads[0], y.value[0]));
+        assert(x.grads[1].approxEqual(stdexp(1.0f) / (stdexp(1.0f) + 1)),
+                "%s : %s".format(x.grads[1], y.value[1]));
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2], No.gradient)([-1.0f, 1.0f]);
+        auto y = softplus(x);
+
+        import std.math : stdlog = log, stdexp = exp, approxEqual;
+
+        assert(y.value[0].approxEqual(stdlog(1 + stdexp(-1.0f))));
+        assert(y.value[1].approxEqual(stdlog(1 + stdexp(1.0f))));
+    }
+}
+
 version (all) // relu
 {
     Tensor!(T, Shape, useGradient) relu(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
