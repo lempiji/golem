@@ -142,7 +142,7 @@ sgd.resetGrads();
 adam.resetGrads();
 
 // train step
-std.trainStep();
+sgd.trainStep();
 adam.trainStep();
 ```
 
