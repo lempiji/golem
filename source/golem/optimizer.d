@@ -143,10 +143,12 @@ struct AdamConfig
 
 class Adam(Params...)
 {
+    alias Values = staticMap!(mapValue, Params);
+
     AdamConfig config;
     Params params;
-    staticMap!(mapValue, Params) ms;
-    staticMap!(mapValue, Params) vs;
+    Values ms;
+    Values vs;
     size_t trainCount;
 
     this(Params params)
