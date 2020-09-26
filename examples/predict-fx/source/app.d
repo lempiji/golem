@@ -113,10 +113,14 @@ Tuple!(Tensor!(float, [0, InputDays]), Tensor!(float, [0, PredictDays])) batchTe
 
 class Model
 {
-	Linear!(float, InputDays, 100) fc1;
-	Linear!(float, 100, PredictDays) fc2;
+	Linear!(float, InputDays, PredictDays) fc_mean;
+	Linear!(float, InputDays, 10) fc_multiply1;
+	Linear!(float, 10, 10) fc_multiply2;
+	Linear!(float, 10, PredictDays) fc_multiply3;
+	Linear!(float, InputDays, 10) fc_diff1;
+	Linear!(float, 10, PredictDays) fc_diff2;
 
-	alias parameters = AliasSeq!(fc1, fc2);
+	alias parameters = AliasSeq!(fc_mean, fc_multiply1, fc_multiply2, fc_multiply3, fc_diff1, fc_diff2);
 
 	this()
 	{
@@ -126,8 +130,17 @@ class Model
 
 	auto forward(T)(T x)
 	{
-		auto h1 = relu(fc1(x));
-		return fc2(h1);
+		auto y = fc_mean(x);
+
+		auto h1 = relu(fc_multiply1(x));
+		auto h2 = relu(fc_multiply2(h1));
+		auto h3 = tanh(fc_multiply3(h2));
+		auto p = onesLike(y) + h3;
+
+		auto hd1 = relu(fc_diff1(x));
+		auto d = fc_diff2(hd1);
+
+		return y * p + d;
 	}
 
 	auto loss(T, U)(T output, U label)
