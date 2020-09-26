@@ -367,6 +367,32 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
         }
     }
 
+
+    Tensor!(T, Shape, commonGradientType!(typeof(this), RTensor)) opBinary(string op : "/", RTensor)(RTensor rhs)
+        if (isTensor!RTensor)
+    {
+        import std.format : format;
+        static assert(testCompatibleStaticShape(Shape, RTensor.staticShape), format!`Mismatch static shape %s != %s`(Shape, RTensor.staticShape));
+        assert(testCompatibleStaticShape(shape, rhs.shape), format!"Mismatch runtime shape %s != %s"(shape, rhs.shape));
+
+        auto y = slice(this.value / rhs.value);
+
+        static if (canBackward!(typeof(this))) this.usedCount++;
+        static if (canBackward!(typeof(rhs))) rhs.usedCount++;
+
+        static if (canBackward!(typeof(this)) || canBackward!(typeof(rhs)))
+        {
+            return new Tensor!(T, Shape)(y, (Value grads) {
+                static if (canBackward!(typeof(this))) this.backward(grads[] / rhs.value[]);
+                static if (canBackward!(typeof(rhs))) rhs.backward(-grads[] * this.value[] / (rhs.value[] * rhs.value[]));
+            });
+        }
+        else
+        {
+            return new Tensor!(T, Shape, No.gradient)(y);
+        }
+    }
+
     Tensor!(T, Shape, hasGradient) opUnary(string op : "-")()
     {
         auto y = slice(-this.value[]);
@@ -481,10 +507,10 @@ unittest
 
 unittest
 {
-    auto a = tensor!([2, 2])([0, 1, 2, 3]);
-    auto b = tensor!([3, 2])([0, 1, 2, 3, 4, 5]);
-    auto c = tensor!([0, 2])([0, 1]);
-    auto d = tensor!([0, 3])([0, 1, 2]);
+    auto a = tensor!([2, 2])([1, 2, 3, 4]);
+    auto b = tensor!([3, 2])([1, 2, 3, 4, 5, 6]);
+    auto c = tensor!([0, 2])([1, 2]);
+    auto d = tensor!([0, 3])([1, 2, 3]);
 
     // dfmt off
     static assert(!__traits(compiles, { auto z = a + b; }));
@@ -501,6 +527,11 @@ unittest
     static assert( __traits(compiles, { auto z = a * c; }));
     static assert(!__traits(compiles, { auto z = a * d; }));
     static assert(!__traits(compiles, { auto z = c * d; }));
+    
+    static assert(!__traits(compiles, { auto z = a / b; }));
+    static assert( __traits(compiles, { auto z = a / c; }));
+    static assert(!__traits(compiles, { auto z = a / d; }));
+    static assert(!__traits(compiles, { auto z = c / d; }));
     // dfmt on
 
     import core.exception : AssertError;
@@ -509,6 +540,7 @@ unittest
     assertThrown!AssertError(a + c, "Mismatch runtime shape [2, 2] != [1, 2]");
     assertThrown!AssertError(a - c, "Mismatch runtime shape [2, 2] != [1, 2]");
     assertThrown!AssertError(a * c, "Mismatch runtime shape [2, 2] != [1, 2]");
+    assertThrown!AssertError(a / c, "Mismatch runtime shape [2, 2] != [1, 2]");
 }
 
 unittest
@@ -585,6 +617,30 @@ unittest
 
 unittest
 {
+    auto x = tensor!([2, 2])([-1.0, 0.0, 1.0, 2.0]);
+    auto y = tensor!([2, 2])([-2.0, 3.0, 4.0, 5.0]);
+    auto z = x / y;
+
+    assert(z.value[0, 0] == 0.5);
+    assert(z.value[0, 1] == 0.0);
+    assert(z.value[1, 0] == 0.25);
+    assert(z.value[1, 1] == 0.4);
+
+    z.backward();
+
+    assert(x.grads[0, 0] == 1.0 / -2.0);
+    assert(x.grads[0, 1] == 1.0 / 3.0);
+    assert(x.grads[1, 0] == 1.0 / 4.0);
+    assert(x.grads[1, 1] == 1.0 / 5.0);
+    
+    assert(y.grads[0, 0] == 1.0 / -2.0 / -2.0);
+    assert(y.grads[0, 1] == -0.0 / 3.0 / 3.0);
+    assert(y.grads[1, 0] == -1.0 / 4.0 / 4.0);
+    assert(y.grads[1, 1] == -2.0 / 5.0 / 5.0);
+}
+
+unittest
+{
     auto x = tensor!([2, 2])([-0.5f, 0.5f, 0.0f, 1.0f]);
     auto y = tensor!([2, 2])([0.5f, 0.5f, 0.5f, 0.5f]);
 
@@ -618,22 +674,24 @@ unittest
 
 unittest
 {
-    Tensor!(int, [2, 2], Yes.gradient) a = tensor!([2, 2])([0, 1, 2, 3]);
-    Tensor!(int, [2, 2], No.gradient) b = tensor!([2, 2], No.gradient)([0, 1, 2, 3]);
+    Tensor!(int, [2, 2], Yes.gradient) a = tensor!([2, 2])([1, 2, 3, 4]);
+    Tensor!(int, [2, 2], No.gradient) b = tensor!([2, 2], No.gradient)([1, 2, 3, 4]);
 
     auto x = a + b;
     auto y = a - b;
     auto z = a * b;
+    auto w = a / b;
 }
 
 unittest
 {
-    Tensor!(int, [2, 2], No.gradient) a = tensor!([2, 2], No.gradient)([0, 1, 2, 3]);
-    Tensor!(int, [2, 2], No.gradient) b = tensor!([2, 2], No.gradient)([0, 1, 2, 3]);
+    Tensor!(int, [2, 2], No.gradient) a = tensor!([2, 2], No.gradient)([1, 2, 3, 4]);
+    Tensor!(int, [2, 2], No.gradient) b = tensor!([2, 2], No.gradient)([1, 2, 3, 4]);
 
     auto x = a + b;
     auto y = a - b;
     auto z = a * b;
+    auto w = a / b;
 }
 
 ///
