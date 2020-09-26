@@ -299,6 +299,61 @@ version (all) // sinh
     }
 }
 
+version (all) // asinh
+{
+    Tensor!(T, Shape, useGradient) asinh(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+    {
+        import std.math : stdsinh = sinh, stdasinh = asinh;
+
+        auto y = slice(x.value.map!(a => stdasinh(a)));
+
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
+
+            return new typeof(return)(y, (Slice!(T*, Shape.length) grads) {
+                x.backward(x.value.map!stdsinh * grads);
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([2])([-1.0f, 1.0f]);
+        auto y = asinh(x);
+
+        import std.math : stdsinh = sinh, stdasinh = asinh, approxEqual;
+
+        assert(y.value[0].approxEqual(stdasinh(-1.0f)));
+        assert(y.value[1].approxEqual(stdasinh(1.0f)));
+
+        y.resetGrads();
+        y.backward();
+
+        import std : format;
+
+        assert(x.grads[0].approxEqual(stdsinh(-1.0f)),
+                "%s : %s".format(x.grads[0], y.value[0]));
+        assert(x.grads[1].approxEqual(stdsinh(1.0f)),
+                "%s : %s".format(x.grads[1], y.value[1]));
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2], No.gradient)([-1.0f, 1.0f]);
+        auto y = asinh(x);
+
+        import std.math : stdasinh = asinh, approxEqual;
+
+        assert(y.value[0].approxEqual(stdasinh(-1.0f)));
+        assert(y.value[1].approxEqual(stdasinh(1.0f)));
+    }
+}
+
 version (all) // softplus
 {
     Tensor!(T, Shape, useGradient) softplus(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
