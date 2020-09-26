@@ -409,6 +409,61 @@ version (all) // cosh
     }
 }
 
+version (all) // acosh
+{
+    Tensor!(T, Shape, useGradient) acosh(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+    {
+        import std.math : stdacosh = acosh, stdsqrt = sqrt;
+
+        auto y = slice(x.value.map!(a => stdacosh(a)));
+
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
+
+            return new typeof(return)(y, (Slice!(T*, Shape.length) grads) {
+                x.backward(x.value.map!(a => 1 / (stdsqrt(a - 1) * stdsqrt(a + 1))) * grads);
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([2])([2.0f, 3.0f]);
+        auto y = acosh(x);
+
+        import std.math : stdacosh = acosh, stdsqrt = sqrt, approxEqual;
+
+        assert(y.value[0].approxEqual(stdacosh(2.0f)));
+        assert(y.value[1].approxEqual(stdacosh(3.0f)));
+
+        y.resetGrads();
+        y.backward();
+
+        import std : format;
+
+        assert(x.grads[0].approxEqual(1 / (stdsqrt(2.0f - 1) * stdsqrt(2.0f + 1))),
+                "%s : %s".format(x.grads[0], y.value[0]));
+        assert(x.grads[1].approxEqual(1 / (stdsqrt(3.0f - 1) * stdsqrt(3.0f + 1))),
+                "%s : %s".format(x.grads[1], y.value[1]));
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2], No.gradient)([2.0f, 3.0f]);
+        auto y = acosh(x);
+
+        import std.math : stdacosh = acosh, approxEqual;
+
+        assert(y.value[0].approxEqual(stdacosh(2.0f)));
+        assert(y.value[1].approxEqual(stdacosh(3.0f)));
+    }
+}
+
 version (all) // softplus
 {
     Tensor!(T, Shape, useGradient) softplus(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
