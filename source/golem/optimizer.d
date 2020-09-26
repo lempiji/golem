@@ -132,6 +132,83 @@ class SGD(Params...)
     }
 }
 
+struct AdamConfig
+{
+    float learningRate = 0.001;
+    float beta1 = 0.9;
+    float beta2 = 0.999;
+    float eps = 1e-8;
+    float weightDecay = 0;
+}
+
+class Adam(Params...)
+{
+    AdamConfig config;
+    Params params;
+    staticMap!(mapValue, Params) ms;
+    staticMap!(mapValue, Params) vs;
+
+    this(Params params)
+    {
+        this.params = params;
+        static foreach (i; 0 .. Params.length)
+        {
+            this.ms[i] = zeros_like(params[i].value);
+            this.vs[i] = zeros_like(params[i].value);
+        }
+    }
+
+    void resetGrads()
+    {
+        foreach (p; params)
+        {
+            p.resetGrads();
+        }
+    }
+
+    void trainStep()
+    {
+        import core.math : sqrt;
+        import mir.ndslice : map;
+
+        const learningRate = config.learningRate;
+        const beta1 = config.beta1;
+        const beta1_m = 1 - beta1;
+        const beta2 = config.beta2;
+        const beta2_m = 1 - beta2;
+        const eps = config.eps;
+        const weightDecay = config.weightDecay;
+
+        foreach (i, p; params)
+        {
+            this.ms[i][] = beta1 * ms[i][] + beta1_m * p.grads[];
+            this.vs[i][] = beta2 * vs[i][] + beta2_m * (p.grads[] * p.grads[]);
+        }
+
+        if (weightDecay != 0)
+        {
+            foreach (i, p; params)
+            {
+                auto mbar = ms[i] / beta1_m;
+                auto vbar = vs[i] / beta2_m;
+
+                p.value[] -= learningRate * mbar[] / vbar[].map!(a => sqrt(a + eps)) + weightDecay * p.value[];
+            }
+        }
+        else
+        {
+            foreach (i, p; params)
+            {
+                auto mbar = ms[i] / beta1_m;
+                auto vbar = vs[i] / beta2_m;
+
+                p.value[] -= learningRate * mbar[] / vbar[].map!(a => sqrt(a + eps));
+            }
+        }
+    }
+}
+
+
 auto createOptimizer(alias Optimizer, Params...)(Params params) if (Params.length > 0)
 {
     import golem.util : staticIndexOf;
@@ -188,6 +265,30 @@ unittest
 
 unittest
 {
+    class Model
+    {
+        Tensor!(float, [2, 2]) weight;
+
+        alias parameters = AliasSeq!(weight);
+
+        this()
+        {
+            weight = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        }
+    }
+
+    auto model = new Model;
+    auto optimizer = createOptimizer!Adam(model);
+    assert(optimizer !is null);
+
+    model.weight.grads[] = 1.0f;
+    assert(model.weight.grads == [[1.0f, 1.0f], [1.0f, 1.0f]]);
+    optimizer.resetGrads();
+    assert(model.weight.grads == [[0.0f, 0.0f], [0.0f, 0.0f]]);
+}
+
+unittest
+{
     import golem.nn : Linear;
 
     auto fc1 = new Linear!(float, 4, 4);
@@ -197,5 +298,15 @@ unittest
     assert(optimizer !is null);
 }
 
+unittest
+{
+    import golem.nn : Linear;
+
+    auto fc1 = new Linear!(float, 2, 2);
+    auto fc2 = new Linear!(float, 2, 1);
+
+    auto optimizer = createOptimizer!Adam(fc1, fc2);
+    assert(optimizer !is null);
+}
 
 private alias mapValue(T) = T.Value;
