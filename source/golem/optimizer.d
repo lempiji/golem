@@ -147,6 +147,7 @@ class Adam(Params...)
     Params params;
     staticMap!(mapValue, Params) ms;
     staticMap!(mapValue, Params) vs;
+    size_t trainCount;
 
     this(Params params)
     {
@@ -171,11 +172,15 @@ class Adam(Params...)
         import core.math : sqrt;
         import mir.ndslice : map;
 
+        ++trainCount;
+
         const learningRate = config.learningRate;
         const beta1 = config.beta1;
-        const beta1_m = 1 - beta1;
+        const beta1_m = 1.0f - beta1;
+        const c1 = 1.0f / (1.0f - beta1 ^^ trainCount);
         const beta2 = config.beta2;
-        const beta2_m = 1 - beta2;
+        const beta2_m = 1.0f - beta2;
+        const c2 = 1.0f / (1.0f - beta2 ^^ trainCount);
         const eps = config.eps;
         const weightDecay = config.weightDecay;
 
@@ -189,8 +194,8 @@ class Adam(Params...)
         {
             foreach (i, p; params)
             {
-                auto mbar = ms[i] / beta1_m;
-                auto vbar = vs[i] / beta2_m;
+                auto mbar = ms[i] * c1;
+                auto vbar = vs[i] * c2;
 
                 p.value[] -= learningRate * mbar[] / vbar[].map!(a => sqrt(a + eps)) + weightDecay * p.value[];
             }
@@ -199,8 +204,8 @@ class Adam(Params...)
         {
             foreach (i, p; params)
             {
-                auto mbar = ms[i] / beta1_m;
-                auto vbar = vs[i] / beta2_m;
+                auto mbar = ms[i] * c1;
+                auto vbar = vs[i] * c2;
 
                 p.value[] -= learningRate * mbar[] / vbar[].map!(a => sqrt(a + eps));
             }
