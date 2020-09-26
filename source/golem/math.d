@@ -79,7 +79,7 @@ version (all) // exp
     }
 }
 
-version (all)
+version (all) // log
 {
     Tensor!(T, Shape, useGradient) log(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
     {
