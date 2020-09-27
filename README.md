@@ -160,3 +160,74 @@ adam.config.beta2 = 0.99;       // default 0.999
 adam.config.eps = 1e-6;         // default 1e-8
 adam.config.weightDecay = 1e-3; // default 0
 ```
+
+### Custom Model
+
+__Perceptron__
+
+- Dim : `Input -> Hidden -> Output`
+- Activation : `sigmoid`
+
+```d
+class Perceptron(size_t Input, size_t Hidden, size_t Output)
+{
+    // layers
+    Linear!(float, Input, Hidden) fc1;
+    Linear!(float, Hidden, Output) fc2;
+
+    // targets of the optimization
+    alias parameters = AliasSeq!(fc1, fc2);
+
+    this()
+    {
+        // init layers
+        foreach (ref p; parameters)
+            p = new typeof(p);
+    }
+
+    auto forward(T)(T x)
+    {
+        auto h = sigmoid(fc1(x));
+        auto o = sigmoid(fc2(h));
+        return o;
+    }
+}
+```
+
+__AutoEncoder__
+
+- Dim : `10 -> 8 -> |3| -> 8 -> 10`
+
+```d
+class AutoEncoder
+{
+    // Nested custom model
+    Perceptron!(float, 10, 8, 3) encoder;
+    Perceptron!(float, 3, 8, 10) decoder;
+
+    alias parameters = AliasSeq!(encoder, decoder);
+
+    this()
+    {
+        foreach (ref p; parameters)
+            p = new typeof(p);
+    }
+
+    auto forward(T)(T x)
+    {
+        auto encoded = encode(x);
+        auto decoded = decode(encoded);
+        return decoded;
+    }
+
+    auto encode(T)(T x)
+    {
+        return encoder.forward(x);
+    }
+
+    auto decode(T)(T x)
+    {
+        return decoder.forward(x);
+    }
+}
+```
