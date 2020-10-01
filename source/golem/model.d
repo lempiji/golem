@@ -155,3 +155,96 @@ unittest
     assert(m1.fc2.weights.value == m2.fc2.weights.value);
     assert(m1.fc2.bias.value == m2.fc2.bias.value);
 }
+
+class ModelArchiver
+{
+    string dirPath;
+    string prefix;
+
+    this(string dirPath = "model_data", string prefix = "model_")
+    {
+        this.dirPath = dirPath;
+        this.prefix = prefix;
+    }
+
+    void save(T)(T model)
+    {
+        static import std.file;
+
+        prepare();
+        std.file.write(makeCurrentPath(), packParameters(model));
+    }
+
+    void load(T)(T model)
+    {
+        static import std.file;
+
+        auto recentPath = findRecentModelPath();
+        import std : writeln;
+        writeln("load : ", recentPath);
+        if (std.file.exists(recentPath))
+            unpackParameters(cast(ubyte[]) std.file.read(recentPath), model);
+    }
+
+    protected void prepare()
+    {
+        import std.file : exists, mkdirRecurse;
+
+        if (!exists(dirPath))
+            mkdirRecurse(dirPath);
+    }
+
+    protected string makeCurrentPath()
+    {
+        import std.path : buildNormalizedPath;
+        import std.format : format;
+        import std.datetime : Clock, DateTime;
+
+        const DateTime now = cast(DateTime) Clock.currTime;
+        const name = format!"%s%04d%02d%02d-%02d%02d%02d.dat"(prefix, now.year,
+                now.month, now.day, now.hour, now.minute, now.second);
+
+        return buildNormalizedPath(dirPath, name);
+    }
+
+    protected auto makePattern()
+    {
+        import std.regex : escaper, regex;
+        import std.conv : to;
+
+        const prefix = escaper(prefix).to!string();
+        const pattern = "^" ~ prefix ~ `(\d{8})-(\d{6}).dat$`;
+        return regex(pattern);
+    }
+
+    protected string findRecentModelPath()
+    {
+        import std.path : baseName;
+        import std.file : dirEntries, DirEntry, SpanMode;
+        import std.regex : matchFirst;
+        import std.typecons : Tuple, tuple;
+
+        string recentPath;
+        Tuple!(string, string) latest;
+
+        const pattern = makePattern();
+        foreach (DirEntry entry; dirEntries(dirPath, SpanMode.shallow))
+        {
+            import std.stdio : writeln;
+
+            auto name = baseName(entry.name);
+            auto m = matchFirst(name, pattern);
+            if (m)
+            {
+                auto temp = tuple(m.captures[0], m.captures[1]);
+                if (recentPath.length == 0 || latest < temp)
+                {
+                    recentPath = entry.name;
+                    latest = temp;
+                }
+            }
+        }
+
+        return recentPath;
+    }
+}
