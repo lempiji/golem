@@ -179,9 +179,10 @@ class ModelArchiver
     {
         static import std.file;
 
+        if (!exists(dirPath))
+            return;
+
         auto recentPath = findRecentModelPath();
-        import std : writeln;
-        writeln("load : ", recentPath);
         if (std.file.exists(recentPath))
             unpackParameters(cast(ubyte[]) std.file.read(recentPath), model);
     }
