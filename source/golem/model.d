@@ -179,7 +179,7 @@ class ModelArchiver
     {
         static import std.file;
 
-        if (!exists(dirPath))
+        if (!std.file.exists(dirPath))
             return;
 
         auto recentPath = findRecentModelPath();
