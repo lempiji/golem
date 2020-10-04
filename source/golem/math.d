@@ -1172,3 +1172,214 @@ version (all) // dropout
         assert(z.value[1, 1, 1].approxEqual(8.0 * a));
     }
 }
+
+version (all) // concat
+{
+    size_t[] makeConcatShape(size_t[] lhs, size_t[] rhs)
+    in (lhs.length > 0)
+    in (rhs.length > 0)
+    in (lhs.length == rhs.length)
+    {
+        size_t axis = lhs.length - 1;
+        foreach (i; 0 .. lhs.length)
+        {
+            if (lhs[i] != rhs[i])
+            {
+                axis = i;
+                break;
+            }
+        }
+        auto shape = lhs.dup;
+        shape[axis] += rhs[axis];
+        return shape;
+    }
+
+    template ConcatTensor(TensorL, TensorR)
+    if (isTensor!TensorL && isTensor!TensorR)
+    {
+        import std.format : format;
+
+        // dfmt off
+        static assert(TensorL.staticShape.length == TensorR.staticShape.length,
+            format!"%s != %s"(TensorL.staticShape, TensorR.staticShape));
+        // dfmt on
+
+        private alias ElementType = TensorL.ElementType;
+        private enum Shape = makeConcatShape(TensorL.staticShape, TensorR.staticShape);
+        private enum useGradient = commonGradientType!(TensorL, TensorR);
+
+        alias ConcatTensor = Tensor!(ElementType, Shape, useGradient);
+    }
+
+    // Dim: [N, A] + [N, B] => [N, A + B]
+    auto concat(T, U)(T x, U y)
+    if (isTensor!T && isTensor!U)
+    {
+        import std.format : format;
+        static assert(T.staticShape.length == 2, format!"Only 2 dimensions are supported at x (%s)"(T.staticShape));
+        static assert(U.staticShape.length == 2, format!"Only 2 dimensions are supported at y (%s)"(U.staticShape));
+        static if (T.staticShape[0] != 0 && U.staticShape[0] != 0)
+        {
+            static assert(T.staticShape[0] == U.staticShape[0], format!"mismatch batch size (%s != %s)"(T.staticShape, U.staticShape));
+        }
+        else
+        {
+            assert(x.shape[0] == y.shape[0], format!"mismatch batch size (%s != %s)"(T.staticShape, U.staticShape));
+        }
+
+        alias Return = ConcatTensor!(T, U);
+
+        const batchSize = x.shape[0];
+        auto z = uninitSlice!(T.ElementType)(batchSize, x.shape[1] + y.shape[1]);
+        foreach (i; 0 .. batchSize)
+        {
+            z[i][0 .. x.shape[1]] = x.value[i][0 .. $];
+            z[i][x.shape[1] .. $] = y.value[i][0 .. $];
+        }
+
+        static if (canBackward!(Return))
+        {
+            static if (canBackward!T) x.usedCount++;
+            static if (canBackward!U) y.usedCount++;
+            return new Return(z, (grads) {
+                static if (canBackward!T)
+                {
+                    x.backward((ref xGrads) {
+                        xGrads[] += grads[0 .. $, 0 .. x.shape[1]];
+                    });
+                }
+                static if (canBackward!U)
+                {
+                    y.backward((ref yGrads) {
+                        yGrads[] += grads[0 .. $, x.shape[1] .. $];
+                    });
+                }
+            });
+        }
+        else
+        {
+            return new Return(z);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto y = tensor!([2, 1])([10.0f, 20.0f]);
+
+        auto z = concat(x, y);
+
+        assert(z.value[0, 0] == 1.0f);
+        assert(z.value[0, 1] == 2.0f);
+        assert(z.value[0, 2] == 10.0f);
+        assert(z.value[1, 0] == 3.0f);
+        assert(z.value[1, 1] == 4.0f);
+        assert(z.value[1, 2] == 20.0f);
+
+        auto a = tensor!([2, 3])([[1.0f, 2.0f, 3.0f], [4.0f, 5.0f, 6.0f]]);
+        (a * z).backward();
+
+        import std.conv : to;
+        assert(x.grads[0, 0] == 1.0f, x.grads.to!string());
+        assert(x.grads[0, 1] == 2.0f, x.grads.to!string());
+        assert(x.grads[1, 0] == 4.0f, x.grads.to!string());
+        assert(x.grads[1, 1] == 5.0f, x.grads.to!string());
+        assert(y.grads[0, 0] == 3.0f, y.grads.to!string());
+        assert(y.grads[1, 0] == 6.0f, y.grads.to!string());
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2, 2], UseGradient.no)([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto y = tensor!([2, 1])([10.0f, 20.0f]);
+
+        auto z = concat(x, y);
+
+        assert(z.value[0, 0] == 1.0f);
+        assert(z.value[0, 1] == 2.0f);
+        assert(z.value[0, 2] == 10.0f);
+        assert(z.value[1, 0] == 3.0f);
+        assert(z.value[1, 1] == 4.0f);
+        assert(z.value[1, 2] == 20.0f);
+
+        auto a = tensor!([2, 3])([[1.0f, 2.0f, 3.0f], [4.0f, 5.0f, 6.0f]]);
+        (a * z).backward();
+
+        import std.conv : to;
+        assert(y.grads[0, 0] == 3.0f, y.grads.to!string());
+        assert(y.grads[1, 0] == 6.0f, y.grads.to!string());
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto y = tensor!([2, 1], UseGradient.no)([10.0f, 20.0f]);
+
+        auto z = concat(x, y);
+
+        assert(z.value[0, 0] == 1.0f);
+        assert(z.value[0, 1] == 2.0f);
+        assert(z.value[0, 2] == 10.0f);
+        assert(z.value[1, 0] == 3.0f);
+        assert(z.value[1, 1] == 4.0f);
+        assert(z.value[1, 2] == 20.0f);
+
+        auto a = tensor!([2, 3])([[1.0f, 2.0f, 3.0f], [4.0f, 5.0f, 6.0f]]);
+        (a * z).backward();
+
+        import std.conv : to;
+        assert(x.grads[0, 0] == 1.0f, x.grads.to!string());
+        assert(x.grads[0, 1] == 2.0f, x.grads.to!string());
+        assert(x.grads[1, 0] == 4.0f, x.grads.to!string());
+        assert(x.grads[1, 1] == 5.0f, x.grads.to!string());
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2, 2], UseGradient.no)([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto y = tensor!([2, 1], UseGradient.no)([10.0f, 20.0f]);
+
+        auto z = concat(x, y);
+        static assert(!canBackward!(typeof(z)));
+        
+        assert(z.value[0, 0] == 1.0f);
+        assert(z.value[0, 1] == 2.0f);
+        assert(z.value[0, 2] == 10.0f);
+        assert(z.value[1, 0] == 3.0f);
+        assert(z.value[1, 1] == 4.0f);
+        assert(z.value[1, 2] == 20.0f);
+    }
+
+    unittest
+    {
+        auto x = tensor!([1, 1])([10.0f, 20.0f, 30.0f]);
+        auto y = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+
+        // mismatch batch size
+        static assert(!__traits(compiles, concat(x, y)));
+    }
+    
+    unittest
+    {
+        auto x = tensor!([0, 1])([10.0f, 20.0f, 30.0f]);
+        auto y = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+
+        // mismatch batch size
+        import core.exception : AssertError;
+        import std.exception : assertThrown;
+
+        assertThrown!AssertError(concat(x, y));
+    }
+
+    unittest
+    {
+        auto x = tensor!([3])([1.0f, 2.0f, 3.0f]);
+        auto y = tensor!([3, 1])([1.0f, 2.0f, 3.0f]);
+        auto z = tensor!([3, 1, 1])([1.0f, 2.0f, 3.0f]);
+        
+        static assert(!__traits(compiles, concat(x, y)));
+        static assert(!__traits(compiles, concat(y, x)));
+        static assert(!__traits(compiles, concat(y, z)));
+        static assert(!__traits(compiles, concat(z, y)));
+    }
+}
