@@ -19,8 +19,8 @@ void main()
 	import std.file : exists, read;
 
 	auto model = new Model;
-	if (exists("model.dat"))
-		unpackParameters(cast(ubyte[]) read("model.dat"), model);
+	auto archiver = new ModelArchiver;
+	archiver.load(model);
 
 	auto optimizer = createOptimizer!SGD(model);
 
@@ -64,9 +64,7 @@ void main()
 		writefln!"train accuracy %.2f%%"(100 * accuracy(trainOutput, trainBatch[1]));
 		writefln!"test accuracy %.2f%%"(100 * accuracy(testOutput, testBatch[1]));
 
-		import std.file : fwrite = write;
-
-		fwrite("model.dat", packParameters(model));
+		archiver.save(model);
 	}
 }
 
