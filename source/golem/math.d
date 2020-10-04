@@ -583,9 +583,18 @@ version (all) // relu
 
 version (all) // linear
 {
-    Tensor!(T, [ShapeX[0], ShapeW[1]]) linear(T, size_t[2] ShapeX, UseGradient useGradX,
-            size_t[2] ShapeW, UseGradient useGradW, size_t[1] ShapeB, UseGradient useGradB)(Tensor!(T, ShapeX, useGradX) x,
-            Tensor!(T, ShapeW, useGradW) W, Tensor!(T, ShapeB, useGradB) B)
+    // dfmt off
+    Tensor!(T, [ShapeX[0], ShapeW[1]], useGradX | useGradW | useGradB) linear(
+        T,
+        size_t[2] ShapeX, UseGradient useGradX,
+        size_t[2] ShapeW, UseGradient useGradW,
+        size_t[1] ShapeB, UseGradient useGradB
+    )(
+        Tensor!(T, ShapeX, useGradX) x,
+        Tensor!(T, ShapeW, useGradW) W,
+        Tensor!(T, ShapeB, useGradB) B
+    )
+    // dfmt on
     {
         static assert(ShapeX[1] == ShapeW[0]);
         static assert(ShapeW[1] == ShapeB[0]);
@@ -603,10 +612,10 @@ version (all) // linear
 
         gemm(T(1), x.value, W.value, T(1), result);
 
-        alias Return = Tensor!(T, [ShapeX[0], OutputDim]);
+        alias Return = typeof(return);
         alias Value = Return.Value;
 
-        static if (canBackward!(typeof(W)) || canBackward!(typeof(x)) || canBackward!(typeof(B)))
+        static if (useGradW | useGradX | useGradB)
         {
             static if (canBackward!(typeof(W))) W.usedCount++;
             static if (canBackward!(typeof(x))) x.usedCount++;
@@ -728,6 +737,19 @@ version (all) // linear
         auto b = tensor!([3], No.gradient)([100.0f, 200.0f, 300.0f]);
 
         auto z = linear(x, w, b);
+
+        assert(z.value[0] == [1 * 1 + 2 * 4 + 100, 1 * 2 + 2 * 5 + 200, 1 * 3 + 2 * 6 + 300]);
+        assert(z.value[1] == [3 * 1 + 4 * 4 + 100, 3 * 2 + 4 * 5 + 200, 3 * 3 + 4 * 6 + 300]);
+    }
+
+    unittest
+    {
+        auto w = tensor!([2, 3], No.gradient)([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+        auto x = tensor!([0, 2], No.gradient)([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto b = tensor!([3], No.gradient)([100.0f, 200.0f, 300.0f]);
+        
+        auto z = linear(x, w, b);
+        static assert(!canBackward!(typeof(z)));
 
         assert(z.value[0] == [1 * 1 + 2 * 4 + 100, 1 * 2 + 2 * 5 + 200, 1 * 3 + 2 * 6 + 300]);
         assert(z.value[1] == [3 * 1 + 4 * 4 + 100, 3 * 2 + 4 * 5 + 200, 3 * 3 + 4 * 6 + 300]);
