@@ -5,7 +5,7 @@ import golem.util;
 
 import mir.ndslice;
 
-Tensor!(T, Shape) uniform(T, size_t[] Shape)() if (Shape.length > 0)
+Tensor!(T, Shape, useGradient) uniform(T, size_t[] Shape, UseGradient useGradient = UseGradient.yes)() if (Shape.length > 0)
 {
     import std.random : stduniform = uniform;
     import std.math : sqrt;
@@ -19,17 +19,33 @@ Tensor!(T, Shape) uniform(T, size_t[] Shape)() if (Shape.length > 0)
         x = stduniform!"[]"(-q, q);
     }
 
-    return new Tensor!(T, Shape)(t.sliced(Shape), null);
+    static if (useGradient)
+    {
+        return new Tensor!(T, Shape)(t.sliced(Shape), null);
+    }
+    else
+    {
+        return new Tensor!(T, Shape, UseGradient.no)(t.sliced(Shape));
+    }
 }
 
 unittest
 {
     auto x = uniform!(float, [2, 3])();
+    static assert(canBackward!(typeof(x)));
+
     assert(x.shape == [2, 3]);
 }
 
+unittest
+{
+    auto x = uniform!(float, [2, 3], UseGradient.no)();
+    static assert(!canBackward!(typeof(x)));
 
-Tensor!(T, Shape) uniform(T, size_t[] Shape)(size_t size) if (Shape.length > 0 && Shape[0] == 0)
+    assert(x.shape == [2, 3]);
+}
+
+Tensor!(T, Shape, useGradient) uniform(T, size_t[] Shape, UseGradient useGradient = UseGradient.yes)(size_t size) if (Shape.length > 0 && Shape[0] == 0)
 {
     import std.random : stduniform = uniform;
     import std.math : sqrt;
@@ -44,12 +60,29 @@ Tensor!(T, Shape) uniform(T, size_t[] Shape)(size_t size) if (Shape.length > 0 &
         x = stduniform!"[]"(-q, q);
     }
 
-    return new Tensor!(T, Shape)(t.sliced([size, expandShape!(Shape[1 .. $])]), null);
+    static if (useGradient)
+    {
+        return new Tensor!(T, Shape)(t.sliced([size, expandShape!(Shape[1 .. $])]), null);
+    }
+    else
+    {
+        return new Tensor!(T, Shape, UseGradient.no)(t.sliced([size, expandShape!(Shape[1 .. $])]));
+    }
 }
 
 unittest
 {
     auto x = uniform!(float, [0, 4])(3);
+    static assert(canBackward!(typeof(x)));
+
+    assert(x.shape == [3, 4]);
+}
+
+unittest
+{
+    auto x = uniform!(float, [0, 4], UseGradient.no)(3);
+    static assert(!canBackward!(typeof(x)));
+
     assert(x.shape == [3, 4]);
 }
 
