@@ -77,3 +77,102 @@ unittest
     static assert(canBackward!(typeof(c)));
     static assert(!canBackward!(typeof(d)));
 }
+
+struct Activation(alias f)
+{
+    import std.functional : unaryFun;
+
+    alias fun = unaryFun!f;
+
+    auto opCall(T)(T x)
+    {
+        return fun(x);
+    }
+}
+
+unittest
+{
+    import golem.math : sigmoid, tanh;
+
+    Activation!sigmoid f1;
+    Activation!tanh f2;
+
+    auto x = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+    
+    auto a = f1(x);
+    auto b = f2(x);
+    auto c = sigmoid(x);
+    auto d = tanh(x);
+
+    assert(a.value == c.value);
+    assert(b.value == d.value);
+}
+
+
+class Sequence(Ts...)
+{
+    Ts layers;
+
+    private alias isNetModule(alias m) = hasParameters!(typeof(m));
+
+    static if (Filter!(isNetModule, AliasSeq!(layers)).length > 0)
+    {
+        alias parameters = Filter!(isNetModule, AliasSeq!(layers));
+
+        this()
+        {
+            foreach (ref p; parameters)
+                p = new typeof(p);
+        }
+    }
+
+
+    auto opCall(T)(T x)
+    {
+        return opCall!0(x);
+    }
+
+    private auto opCall(size_t n, T)(T x)
+    {
+        static if (n == Ts.length)
+        {
+            return x;
+        }
+        else
+        {
+            return opCall!(n + 1)(layers[n](x));
+        }
+    }
+}
+
+unittest
+{
+    import golem.math : sigmoid;
+
+    auto net = new Sequence!(
+        Linear!(float, 2, 2),
+        Activation!sigmoid,
+        Linear!(float, 2, 2),
+        Activation!sigmoid,
+        Linear!(float, 2, 1),
+        Activation!sigmoid,
+    );
+
+    static assert(hasParameters!(typeof(net)));
+
+    auto x = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+    auto y = net(x);
+}
+
+unittest
+{
+    import golem.math : sigmoid;
+
+    auto net = new Sequence!(
+        Activation!sigmoid,
+        Activation!sigmoid,
+        Activation!sigmoid,
+    );
+
+    static assert(!hasParameters!(typeof(net)));
+}
