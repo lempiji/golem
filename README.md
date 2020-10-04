@@ -231,3 +231,9 @@ class AutoEncoder
     }
 }
 ```
+
+## Modules
+
+__Dependency Graph__
+
+![dependency graph](images/deps.svg)

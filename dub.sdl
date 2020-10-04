@@ -16,3 +16,21 @@ configuration "unittest" {
     dependency "silly" version="~>1.0.2"
     dflags "-checkaction=context"
 }
+
+configuration "makedeps" {
+    dflags "-deps=deps.txt"
+}
+
+configuration "diff-update" {
+    targetType "library"
+    postBuildCommands "dub fetch ddeps"
+    postBuildCommands "dub run ddeps -- --update"
+}
+
+configuration "diff" {
+    targetType "library"
+	postBuildCommands "dub build -c makedeps"
+	postBuildCommands "dub fetch ddeps"
+	postBuildCommands "dub run ddeps -- --focus=golem -e core -e std -e mir -e numir -o images/deps.dot"
+	postBuildCommands "dot -Tsvg -o images/deps.svg images/deps.dot"
+}

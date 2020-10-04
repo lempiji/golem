@@ -1,0 +1,32 @@
+digraph {
+    {
+        "golem"
+        "golem.math"
+        "golem.metrics"
+        "golem.model"
+        "golem.nn"
+        "golem.optimizer"
+        "golem.random"
+        "golem.tensor"
+        "golem.util"
+    }
+    "golem" -> "golem.math";
+    "golem" -> "golem.metrics";
+    "golem" -> "golem.model";
+    "golem" -> "golem.nn";
+    "golem" -> "golem.optimizer";
+    "golem" -> "golem.tensor";
+    "golem.math" -> "golem.tensor";
+    "golem.math" -> "golem.util";
+    "golem.metrics" -> "golem.tensor";
+    "golem.model" -> "golem.nn";
+    "golem.model" -> "golem.tensor";
+    "golem.model" -> "golem.util";
+    "golem.nn" -> "golem.random";
+    "golem.nn" -> "golem.tensor";
+    "golem.optimizer" -> "golem.nn";
+    "golem.optimizer" -> "golem.tensor";
+    "golem.random" -> "golem.tensor";
+    "golem.random" -> "golem.util";
+    "golem.tensor" -> "golem.util";
+}
