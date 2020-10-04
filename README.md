@@ -232,6 +232,21 @@ class AutoEncoder
 }
 ```
 
+#### Use Sequence
+
+```d
+alias Perceptron(size_t Input, size_t Hidden, size_t Output) = Sequence!(
+        Linear!(float, Input, Hidden),
+        Activation!sigmoid,
+        Linear!(float, Hidden, Output),
+        Activation!sigmoid,
+    );
+
+auto net = new Perceptron!(2, 2, 1);
+auto x = tensor!([0, 2])([1.0f, 2.0f]);
+auto y = net(x);
+```
+
 ## Modules
 
 __Dependency Graph__
