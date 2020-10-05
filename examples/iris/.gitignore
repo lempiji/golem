@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/iris
+iris.so
+iris.dylib
+iris.dll
+iris.a
+iris.lib
+iris-test-*
+*.exe
+*.o
+*.obj
+*.lst

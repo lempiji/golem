@@ -1,0 +1,6 @@
+name "iris"
+description "A minimal D application."
+authors "lempiji"
+license "MIT"
+
+dependency "golem" path="../.."
