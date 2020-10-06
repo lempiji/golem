@@ -1,5 +1,5 @@
 name "golem"
-description "A minimal D application."
+description "A simple tensor library for the computational graph on CPU"
 authors "lempiji"
 license "MIT"
 
