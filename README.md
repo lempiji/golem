@@ -247,6 +247,28 @@ auto x = tensor!([0, 2])([1.0f, 2.0f]);
 auto y = net(x);
 ```
 
+### Save & Load
+
+```d
+auto model = new Model;
+auto archiver = new ModelArchiver("model_data");
+archiver.load(model); // recent saved parameters
+
+foreach (epoch; 0 .. N)
+{
+    // train
+
+    archiver.save(model); // save by epoch
+}
+```
+
+__file format__
+
+```
+./model_data
+    model_yyyyMMdd-hhmmss.dat
+```
+
 ## Modules
 
 __Dependency Graph__
