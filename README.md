@@ -258,11 +258,11 @@ foreach (epoch; 0 .. N)
 {
     // train
 
-    archiver.save(model); // save by epoch
+    archiver.save(model); // save each epoch
 }
 ```
 
-__file format__
+__filename format__
 
 ```
 ./model_data
