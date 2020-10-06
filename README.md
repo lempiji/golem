@@ -4,12 +4,12 @@
 
 ## Features
 
-WIP
-
 - Computational graph (autograd)
 - A statically size checked slice
+- Statically omit grads from tensor
+  - `UseGradient.no` or `No.gradient`
 - Some friendly error messages
-- Simple SGD and Adam optimizer
+- Simple `SGD` and `Adam` optimizer
 
 ## Examples
 
@@ -29,6 +29,13 @@ auto y = tensor!([2, 2])([
 auto z = x + y;
 
 assert(z.value[0, 0] == 0.0);
+```
+
+```d
+import golem.random : randn;
+
+// no grads tensor
+Tensor!(float, [3, 3], UseGradient.no) x = randn!(float, [3, 3], No.gradient);
 ```
 
 
