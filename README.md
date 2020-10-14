@@ -6,10 +6,10 @@
 
 - Computational graph (autograd)
 - A statically size checked slice
+  - with shape-safe operators
 - Statically omit grads from tensor
   - `UseGradient.no` or `No.gradient`
-- Shape-safe operators
-  - Some friendly error messages
+- Some friendly error messages
 - Simple `SGD` and `Adam` optimizer
 
 ## Examples
