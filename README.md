@@ -8,7 +8,8 @@
 - A statically size checked slice
 - Statically omit grads from tensor
   - `UseGradient.no` or `No.gradient`
-- Some friendly error messages
+- Shape-safe operators
+  - Some friendly error messages
 - Simple `SGD` and `Adam` optimizer
 
 ## Examples
