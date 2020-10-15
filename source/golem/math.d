@@ -1052,6 +1052,88 @@ version (all) // flatten
     }
 }
 
+version (all) // softmax
+{
+    Tensor!(T, Shape, useGrad) softmax(T, size_t[] Shape, UseGradient useGrad)(Tensor!(T, Shape, useGrad) x)
+        if (Shape.length == 2)
+    {
+        import std.math : stdexp = exp;
+
+        static if (Shape[0] == 0)
+            const batchSize = x.shape[0];
+        else
+            enum batchSize = Shape[0];
+
+        enum dim = Shape[1];
+        auto y = uninitSlice!T(batchSize, dim);
+        
+        const expx = slice(x.value.map!stdexp);
+        T[dim] temp;
+        foreach (i; 0 .. batchSize)
+        {
+            auto s = T(0);
+            foreach (j; 0 .. dim)
+            {
+                temp[j] = expx[i, j];
+                s += temp[j];
+            }
+            foreach (j; 0 .. dim)
+            {
+                y[i, j] = temp[j] / s;
+            }
+        }
+
+        static if (useGrad)
+        {
+            x.usedCount++;
+            return new Tensor!(T, Shape)(y, (grads) {
+                x.backward((ref xGrads) {
+                    foreach (i; 0 .. batchSize)
+                    {
+                        import mir.math.sum : mirsum = sum;
+
+                        const s = mirsum!"fast"(expx[i, 0 .. dim]);
+                        const is2 = T(1) / (s * s);
+                        foreach (j; 0 .. dim)
+                        {
+                            const a = grads[i, j];
+                            auto d = T(0);
+                            foreach (k; 0 .. dim)
+                            {
+                                if (k == j) continue;
+                                d += (a - grads[i, k]) * expx[i, k];
+                            }
+                            
+                            xGrads[i, j] = is2 * expx[i, j] * d;
+                        }
+                    }
+                });
+            });
+        }
+        else
+        {
+            return new Tensor!(T, Shape, UseGradient.no)(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 3])([[1.0, 2.0, 3.0]]);
+        auto y = softmax(x);
+        auto z = tensor!([0, 3], UseGradient.no)([[1.0, 0.0, 0.0]]);
+
+        import mir.math.sum : mirsum = sum;
+        import std.math : approxEqual;
+
+        assert(mirsum(y.value).approxEqual(1));
+
+        auto t = z - y;
+        auto loss = mean(t * t);
+
+        loss.backward();
+    }
+}
+
 version (all) // softmaxCrossEntropy
 {
     Tensor!(T, [1]) softmaxCrossEntropy(T, size_t[] Shape1, size_t[] Shape2, UseGradient useGrad)(Tensor!(T, Shape1, useGrad) x, Tensor!(T, Shape2, UseGradient.no) y)
