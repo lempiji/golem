@@ -6,6 +6,7 @@
 
 - Computational graph (autograd)
 - A statically size checked slice
+  - with shape-safe operators
 - Statically omit grads from tensor
   - `UseGradient.no` or `No.gradient`
 - Some friendly error messages
@@ -159,6 +160,7 @@ adam.trainStep();
 auto sgd = createOptimizer!SGD(fc1, fc2);
 sgd.config.learningRate = 0.1;  // default 0.01
 sgd.config.momentumRate = 0.95; // default 0.9
+adam.config.weightDecay = 1e-3; // default 0
 
 auto adam = createOptimizer!Adam(fc1, fc2);
 adam.config.learningRate = 0.1; // default 0.001
