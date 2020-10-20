@@ -10,7 +10,7 @@
 - Statically omit grads from tensor
   - `UseGradient.no` or `No.gradient`
 - Some friendly error messages
-- Simple `SGD` and `Adam` optimizer
+- Simple `SGD` , `Adam` or `AdaBelief` optimizer
 
 ## Examples
 
@@ -157,17 +157,28 @@ adam.trainStep();
 ```d
 // configure Parameters
 
+// SGD
 auto sgd = createOptimizer!SGD(fc1, fc2);
 sgd.config.learningRate = 0.1;  // default 0.01
 sgd.config.momentumRate = 0.95; // default 0.9
 adam.config.weightDecay = 1e-3; // default 0
 
+// Adam
 auto adam = createOptimizer!Adam(fc1, fc2);
 adam.config.learningRate = 0.1; // default 0.001
 adam.config.beta1 = 0.95;       // default 0.9
 adam.config.beta2 = 0.99;       // default 0.999
 adam.config.eps = 1e-6;         // default 1e-8
 adam.config.weightDecay = 1e-3; // default 0
+
+// AdaBelief
+// https://arxiv.org/abs/2010.07468
+auto adabelief = createOptimizer!AdaBelief(fc1, fc2);
+adabelief.config.learningRate = 0.1; // default 0.001
+adabelief.config.beta1 = 0.95;       // default 0.9
+adabelief.config.beta2 = 0.99;       // default 0.999
+adabelief.config.eps = 1e-6;         // default 1e-8
+adabelief.config.weightDecay = 1e-3; // default 0
 ```
 
 ### Custom Model

@@ -216,6 +216,80 @@ class Adam(Params...)
 }
 
 
+class AdaBelief(Params...)
+{
+    alias Values = staticMap!(mapValue, Params);
+
+    AdamConfig config;
+    Params params;
+    Values ms;
+    Values vs;
+    size_t trainCount;
+
+    this(Params params)
+    {
+        this.params = params;
+        static foreach (i; 0 .. Params.length)
+        {
+            this.ms[i] = zeros_like(params[i].value);
+            this.vs[i] = zeros_like(params[i].value);
+        }
+    }
+
+    void resetGrads()
+    {
+        foreach (p; params)
+        {
+            p.resetGrads();
+        }
+    }
+
+    void trainStep()
+    {
+        import core.math : sqrt;
+        import mir.ndslice : map;
+
+        ++trainCount;
+
+        const learningRate = config.learningRate;
+        const beta1 = config.beta1;
+        const beta1_m = 1.0f - beta1;
+        const c1 = 1.0f / (1.0f - beta1 ^^ trainCount);
+        const beta2 = config.beta2;
+        const beta2_m = 1.0f - beta2;
+        const c2 = 1.0f / (1.0f - beta2 ^^ trainCount);
+        const eps = config.eps;
+        const weightDecay = config.weightDecay;
+
+        foreach (i, p; params)
+        {
+            this.ms[i][] = beta1 * ms[i][] + beta1_m * p.grads[];
+            this.vs[i][] = beta2 * vs[i][] + beta2_m * (p.grads[] - ms[i][]) ^^ 2;
+        }
+
+        if (weightDecay != 0)
+        {
+            foreach (i, p; params)
+            {
+                auto mbar = ms[i] * c1;
+                auto vbar = vs[i] * c2;
+
+                p.value[] -= learningRate * mbar[] / vbar[].map!(a => sqrt(a + eps)) + weightDecay * p.value[];
+            }
+        }
+        else
+        {
+            foreach (i, p; params)
+            {
+                auto mbar = ms[i] * c1;
+                auto vbar = vs[i] * c2;
+
+                p.value[] -= learningRate * mbar[] / vbar[].map!(a => sqrt(a + eps));
+            }
+        }
+    }
+}
+
 auto createOptimizer(alias Optimizer, Params...)(Params params) if (Params.length > 0)
 {
     import golem.util : staticIndexOf;
