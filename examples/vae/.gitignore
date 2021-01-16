@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/vae
+vae.so
+vae.dylib
+vae.dll
+vae.a
+vae.lib
+vae-test-*
+*.exe
+*.o
+*.obj
+*.lst

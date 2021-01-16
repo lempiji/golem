@@ -1,0 +1,10 @@
+name "vae"
+description "A minimal D application."
+authors "lempiji"
+copyright "Copyright © 2021, lempiji"
+license "MIT"
+dependency "golem" path="../.."
+dependency "imageformats" version="~>7.0.2"
+
+postGenerateCommands "dub fetch data-mnist"
+postGenerateCommands "dub run data-mnist"
