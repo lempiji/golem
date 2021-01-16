@@ -777,6 +777,34 @@ unittest
 }
 
 ///
+Tensor!(T, Shape, No.gradient) zeros(T, size_t[] Shape)()
+if (Shape[0] != 0)
+{
+    return new typeof(return)(numir.zeros!T(Shape));
+}
+
+///
+Tensor!(T, Shape, No.gradient) zeros(T, size_t[] Shape)(sie_t batchSize)
+if (Shape[0] == 0)
+{
+    return new typeof(return)(numir.zeros!T(Shape));
+}
+
+///
+Tensor!(T, Shape, No.gradient) zerosLike(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+{
+    static if (x.staticShape[0] == 0)
+    {
+        return zeros!(T, Shape)(x.shape[0]);
+    }
+    else
+    {
+        return zeros!(T, Shape)();
+    }
+}
+
+
+///
 Tensor!(T, Shape, No.gradient) ones(T, size_t[] Shape)()
 if (Shape[0] != 0)
 {
