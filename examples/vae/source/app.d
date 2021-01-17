@@ -204,7 +204,7 @@ class Model
 auto binaryCrossEntropy(T, U)(T x, U y)
 {
 	auto t1 = y * log(x + 1e-7);
-	auto t2 = (-y + 1.0f) * log(-x + (1.0f + 1e-7));
+	auto t2 = (1 - y) * log((1.0f + 1e-7) - x);
 
 	return -sum(t1 + t2);
 }
