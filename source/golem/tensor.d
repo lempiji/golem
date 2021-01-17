@@ -317,6 +317,23 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
             return new Tensor!(T, Shape, No.gradient)(y);
         }
     }
+    
+    Tensor!(T, Shape, hasGradient) opBinaryRight(string op : "-")(T rhs)
+    {
+        auto y = slice(rhs - this.value[]);
+
+        static if (canBackward!(typeof(this)))
+        {
+            this.usedCount++;
+            return new Tensor!(T, Shape)(y, (Value grads) {
+                this.backward((ref yGrads) { yGrads[] -= grads[]; });
+            });
+        }
+        else
+        {
+            return new Tensor!(T, Shape, No.gradient)(y);
+        }
+    }
 
     Tensor!(T, Shape, commonGradientType!(typeof(this), RTensor)) opBinary(string op : "*", RTensor)(RTensor rhs)
     if (isTensor!RTensor)
@@ -702,6 +719,32 @@ unittest
     y.backward();
     assert(x.grads[] == [[1.0, 1.0], [1.0, 1.0]]);
     assert(y.grads[] == [[1.0f, 1.0f], [1.0f, 1.0f]]);
+
+    static assert(!__traits(compiles, z.backward()));
+}
+
+unittest
+{
+    auto a = tensor!([2, 2])([1.0, 2, 3, 4]);
+    auto b = tensor!([0, 2])([1.0f, 2, 3, 4]);
+    auto c = tensor!([2, 2], UseGradient.no)([10, 20, 30, 40]);
+
+    auto x = 0.5 - a;
+    auto y = 0.25f - b;
+    auto z = 2 - c;
+
+    assert(x.value[] == [[-0.5, -1.5], [-2.5, -3.5]]);
+    assert(y.value[] == [[-0.75f, -1.75f], [-2.75f, -3.75f]]);
+    assert(z.value[] == [[-8, -18], [-28, -38]]);
+
+    assert(x.grads[] == [[0.0, 0.0], [0.0, 0.0]]);
+    assert(y.grads[] == [[0.0f, 0.0f], [0.0f, 0.0f]]);
+    x.backward();
+    y.backward();
+    assert(x.grads[] == [[1.0, 1.0], [1.0, 1.0]]);
+    assert(a.grads[] == [[-1.0, -1.0], [-1.0, -1.0]]);
+    assert(y.grads[] == [[1.0f, 1.0f], [1.0f, 1.0f]]);
+    assert(b.grads[] == [[-1.0f, -1.0f], [-1.0f, -1.0f]]);
 
     static assert(!__traits(compiles, z.backward()));
 }
