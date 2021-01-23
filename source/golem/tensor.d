@@ -868,10 +868,10 @@ if (Shape[0] != 0)
 }
 
 ///
-Tensor!(T, Shape, No.gradient) zeros(T, size_t[] Shape)(sie_t batchSize)
+Tensor!(T, Shape, No.gradient) zeros(T, size_t[] Shape)(size_t batchSize)
 if (Shape[0] == 0)
 {
-    return new typeof(return)(numir.zeros!T(Shape));
+    return new typeof(return)(numir.zeros!T([batchSize, expandShape!(Shape[1 .. $])]));
 }
 
 ///
