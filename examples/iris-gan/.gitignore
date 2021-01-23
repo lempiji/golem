@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/iris-gan
+iris-gan.so
+iris-gan.dylib
+iris-gan.dll
+iris-gan.a
+iris-gan.lib
+iris-gan-test-*
+*.exe
+*.o
+*.obj
+*.lst

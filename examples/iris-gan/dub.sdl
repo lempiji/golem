@@ -1,0 +1,6 @@
+name "iris-gan"
+description "A minimal D application."
+authors "lempiji"
+license "MIT"
+dependency "golem" path="../.."
+dependency "lantern" version="~>1.0.1"
