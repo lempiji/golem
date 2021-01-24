@@ -91,6 +91,14 @@ static assert(!__traits(compiles, {
 assertThrown!AssertError(x + z);
 ```
 
+```d
+// more dimentions
+// like PyTorch (batch, channel, width, height)
+Tensor!(float, [0, 3, 224, 224]) images;
+
+// (batch, width, height)
+Tensor!(float, [0, 28, 28], UseGradient.no) mnistImages;
+```
 
 ### Linear
 
