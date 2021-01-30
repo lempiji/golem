@@ -275,6 +275,23 @@ auto x = tensor!([0, 2])([1.0f, 2.0f]);
 auto y = net(x);
 ```
 
+### K-Fold
+
+```d
+import golem.data.common;
+
+auto source = [1.0, 2.0, 3.0, 4.0, 5.0];
+auto datasets = source.kfold!5();
+
+foreach (dataset; parallel(datasets[]))
+{
+    auto train = dataset[0];
+    auto test = dataset[1];
+
+    // train
+}
+```
+
 ### Save & Load
 
 ```d
