@@ -66,6 +66,19 @@ void main()
 
 		archiver.save(model);
 	}
+	
+	auto trainBatch = batchTensor(trainDataset);
+	auto trainOutput = model.forward(trainBatch[0]);
+	auto mat = confustionMatrix(trainOutput, trainBatch[1]);
+
+	writeln();
+	writeln("-- confusion matrix --");
+	auto names = [" 0", " 1", " 2", " 3", " 4", " 5", " 6", " 7", " 8", " 9"];
+	size_t n;
+	foreach (c; mat.value)
+	{
+		writefln!"%s : %(%5d %)"(names[n++], c);
+	}
 }
 
 
@@ -93,7 +106,10 @@ in(images.length == labels.length * 784)
 	return result.data;
 }
 
-Tuple!(Tensor!(float, [0, 28, 28]), Tensor!(float, [0, 10], UseGradient.no)) batchTensor(R)(R dataset)
+alias InputTensor = Tensor!(float, [0, 28, 28], UseGradient.no);
+alias LabelTensor = Tensor!(float, [0, 10], UseGradient.no);
+
+Tuple!(InputTensor, LabelTensor) batchTensor(R)(R dataset)
 {
 	import std.array : appender;
 	auto input = appender!(float[]);
@@ -105,8 +121,8 @@ Tuple!(Tensor!(float, [0, 28, 28]), Tensor!(float, [0, 10], UseGradient.no)) bat
 		label ~= data[1];
 	}
 
-	auto inputTensor = tensor!([0, 28, 28])(input.data);
-	auto labelTensor = tensor!([0, 10], UseGradient.no)(label.data);
+	auto inputTensor = new InputTensor(input.data);
+	auto labelTensor = new LabelTensor(label.data);
 
 	return tuple(inputTensor, labelTensor);
 }
