@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/likehood
+likehood.so
+likehood.dylib
+likehood.dll
+likehood.a
+likehood.lib
+likehood-test-*
+*.exe
+*.o
+*.obj
+*.lst
