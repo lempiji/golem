@@ -132,3 +132,33 @@ unittest
     auto u = normal!(float, [2, 2])(1.0, 2.0);
     auto t = normal!(float, [0, 3])(3, 1.0, 2.0);
 }
+
+Tensor!(T, Shape, UseGradient.no) normalLike(T, size_t[] Shape, UseGradient useGrad)(Tensor!(T, Shape, useGrad) x, in T location = 0.0, in T scale = 1.0)
+if (Shape[0] != 0)
+{
+    return normal!(T, Shape)(location, scale);
+}
+
+unittest
+{
+    auto x = tensor!([2, 2])([0.1, 0.2, 0.3, 0.4]);
+    auto z = normalLike(x, 0, 1);
+
+    static assert(x.staticShape == z.staticShape);
+    assert(x.shape == z.shape);
+}
+
+Tensor!(T, Shape, UseGradient.no) normalLike(T, size_t[] Shape, UseGradient useGrad)(Tensor!(T, Shape, useGrad) x, in T location = 0.0, in T scale = 1.0)
+if (Shape[0] == 0)
+{
+    return normal!(T, Shape)(x.shape[0], location, scale);
+}
+
+unittest
+{
+    auto x = tensor!([0, 2])([0.1, 0.2, 0.3, 0.4]);
+    auto z = normalLike(x, 0, 1);
+
+    static assert(x.staticShape == z.staticShape);
+    assert(x.shape == z.shape);
+}
