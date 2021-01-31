@@ -1547,3 +1547,104 @@ version (all) // batchSum
         assert(y.value == [[8.0, 10.0], [12.0, 14.0]]);
     }
 }
+
+version (all) // boradcastOp
+{
+    template broadcastOp(string op)
+    if (op == "+" || op == "-")
+    {
+        auto broadcastOp(T, size_t[] Shape1, UseGradient useGrad1, size_t[] Shape2, UseGradient useGrad2)(
+                Tensor!(T, Shape1, useGrad1) x, Tensor!(T, Shape2, useGrad2) y)
+        {
+            enum Dim1 = Shape1.length;
+            enum Dim2 = Shape2.length;
+
+            static assert(Shape1[$ - Dim2 .. $] == Shape2);
+
+            static if (op == "+")
+                alias binOp = (a, b) => a + b;
+            else static if (op == "-")
+                alias binOp = (a, b) => a - b;
+            
+            auto yv = y.value;
+            auto z = x.value.pack!Dim2.map!(a => binOp(a, yv)).fuse();
+
+            static if (useGrad1 || useGrad2)
+            {
+                x.usedCount++;
+                return new Tensor!(T, Shape1, UseGradient.yes)(z, (grads) {
+                    x.backward(grads);
+                    y.backward((ref yGrads) {
+                        import mir.math.sum : mirsum = sum;
+
+                        static if (op == "+")
+                            yGrads[] += grads.transposed!(expandIndex!(Dim1 - Dim2, Dim1)).ipack!Dim2.map!(a => mirsum(a));
+                        else
+                            yGrads[] -= grads.transposed!(expandIndex!(Dim1 - Dim2, Dim1)).ipack!Dim2.map!(a => mirsum(a));
+                    });
+                });
+            }
+            else
+            {
+                return new Tensor!(T, Shape1, UseGradient.no)(z);
+            }
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        auto y = tensor!([2], UseGradient.no)([10.0, 20.0]);
+
+        auto z1 = broadcastOp!"+"(x, y);
+        auto z2 = broadcastOp!"-"(x, y);
+
+        assert(z1.value.flattened == [11.0, 22.0, 13.0, 24.0, 15.0, 26.0, 17.0, 28.0]);
+        assert(z2.value.flattened == [-9.0, -18.0, -7.0, -16.0, -5.0, -14.0, -3.0, -12.0]);
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([2])([10.0, 20.0]);
+        auto z = broadcastOp!"+"(x, y);
+        assert(z.shape == [2, 2]);
+        assert(z.value == [[11.0, 22.0], [13.0, 24.0]]);
+
+        z.backward();
+
+        import std : text;
+
+        assert(x.grads == [[1.0, 1.0], [1.0, 1.0]], text("x.grads: ", x.grads, " != [[1.0, 1.0], [1.0, 1.0]]"));
+        assert(y.grads == [2.0, 2.0], text("y.grads: ", y.grads, " != [2.0, 2.0]"));
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([2])([10.0, 20.0]);
+        auto z = broadcastOp!"-"(x, y);
+        assert(z.shape == [2, 2]);
+        assert(z.value == [[-9.0, -18.0], [-7.0, -16.0]]);
+
+        z.backward();
+
+        import std : text;
+
+        assert(x.grads == [[1.0, 1.0], [1.0, 1.0]], text("x.grads: ", x.grads, " != [[1.0, 1.0], [1.0, 1.0]]"));
+        assert(y.grads == [-2.0, -2.0], text("y.grads: ", y.grads, " != [-2.0, -2.0]"));
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto y = (1.0 / x.shape[0]) * batchSum(x); // mean
+        auto z = broadcastOp!"-"(x, y);
+        assert(z.shape == [2, 2]);
+        assert(z.value == [[-1.0, -1.0], [1.0, 1.0]]);
+
+        z.backward();
+
+        assert(x.grads == [[1.0, 1.0], [1.0, 1.0]]);
+    }
+}
