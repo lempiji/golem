@@ -1487,3 +1487,63 @@ version (all) // concat
         static assert(!__traits(compiles, concat(z, y)));
     }
 }
+
+version (all) // batchSum
+{
+    Tensor!(T, Shape[1 .. $], useGrad) batchSum(T, size_t[] Shape, UseGradient useGrad)(Tensor!(T, Shape, useGrad) x)
+    {
+        import mir.math.sum : mirsum = sum;
+
+        auto y = x.value.bringToFront!(Shape.length - 1).pack!1.map!(a => mirsum(a)).slice();
+
+        static if (useGrad)
+        {
+            x.usedCount++;
+            return new typeof(return)(y, (grads) {
+                x.backward((ref xGrads) {
+                    foreach (i; 0 .. x.shape[0])
+                    {
+                        xGrads[i][] += grads[];
+                    }
+                });
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        
+        Tensor!(double, [2, 2]) y = batchSum(x);
+        assert(y.value == [[6.0, 8.0], [10.0, 12.0]]);
+
+        y.backward();
+
+        assert(x.grads == [[[1.0, 1.0], [1.0, 1.0]], [[1.0, 1.0], [1.0, 1.0]]]);
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2])([1.0, 2.0, 3.0, 4.0]);
+        
+        Tensor!(double, [2]) y = batchSum(x);
+        assert(y.value == [4.0, 6.0]);
+
+        auto z = y * tensor!([2])([-1.0, 2.0]);
+        z.backward();
+
+        assert(x.grads == [[-1.0, 2.0], [-1.0, 2.0]]);
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2], UseGradient.no)([2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]);
+        
+        Tensor!(double, [2, 2], UseGradient.no) y = batchSum(x);
+        assert(y.value == [[8.0, 10.0], [12.0, 14.0]]);
+    }
+}
