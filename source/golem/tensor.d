@@ -862,21 +862,65 @@ unittest
 }
 
 ///
-Tensor!(T, Shape, No.gradient) zeros(T, size_t[] Shape)()
+Tensor!(T, Shape, useGrad) zeros(T, size_t[] Shape, UseGradient useGrad = UseGradient.no)()
 if (Shape[0] != 0)
 {
     return new typeof(return)(numir.zeros!T(Shape));
 }
 
+///ditto
+unittest
+{
+    auto z = zeros!(float, [2, 2]);
+    assert(z.shape == [2, 2]);
+    assert(z.value[0, 0] == 0);
+    assert(z.value[0, 1] == 0);
+    assert(z.value[1, 0] == 0);
+    assert(z.value[1, 1] == 0);
+}
+
+///ditto
+unittest
+{
+    auto z = zeros!(float, [2, 2], UseGradient.yes);
+    assert(z.shape == [2, 2]);
+    assert(z.value[0, 0] == 0);
+    assert(z.value[0, 1] == 0);
+    assert(z.value[1, 0] == 0);
+    assert(z.value[1, 1] == 0);
+}
+
 ///
-Tensor!(T, Shape, No.gradient) zeros(T, size_t[] Shape)(size_t batchSize)
+Tensor!(T, Shape, useGrad) zeros(T, size_t[] Shape, UseGradient useGrad = UseGradient.no)(size_t batchSize)
 if (Shape[0] == 0)
 {
     return new typeof(return)(numir.zeros!T([batchSize, expandShape!(Shape[1 .. $])]));
 }
 
+///ditto
+unittest
+{
+    auto z = zeros!(float, [0, 2])(2);
+    assert(z.shape == [2, 2]);
+    assert(z.value[0, 0] == 0);
+    assert(z.value[0, 1] == 0);
+    assert(z.value[1, 0] == 0);
+    assert(z.value[1, 1] == 0);
+}
+
+///ditto
+unittest
+{
+    auto z = zeros!(float, [0, 2], UseGradient.yes)(2);
+    assert(z.shape == [2, 2]);
+    assert(z.value[0, 0] == 0);
+    assert(z.value[0, 1] == 0);
+    assert(z.value[1, 0] == 0);
+    assert(z.value[1, 1] == 0);
+}
+
 ///
-Tensor!(T, Shape, No.gradient) zerosLike(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+Tensor!(T, Shape, UseGradient.no) zerosLike(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
 {
     static if (x.staticShape[0] == 0)
     {
@@ -888,16 +932,60 @@ Tensor!(T, Shape, No.gradient) zerosLike(T, size_t[] Shape, UseGradient useGradi
     }
 }
 
+///ditto
+Tensor!(T, Shape, useGrad) zerosLike(UseGradient useGrad, T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+{
+    static if (x.staticShape[0] == 0)
+    {
+        return zeros!(T, Shape, useGrad)(x.shape[0]);
+    }
+    else
+    {
+        return zeros!(T, Shape, useGrad)();
+    }
+}
+
+///ditto
+unittest
+{
+    auto x = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+    auto x1 = zerosLike(x);
+
+    assert(x.shape == x1.shape);
+    assert(x1.value == zeros!(float, [2, 2]).value);
+    static assert(!canBackward!(typeof(x1)));
+}
+
+///ditto
+unittest
+{
+    auto x = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+    auto x1 = zerosLike(x);
+
+    assert(x.shape == x1.shape);
+    assert(x1.value == zeros!(float, [2, 3]).value);
+    static assert(!canBackward!(typeof(x1)));
+}
+
+///ditto
+unittest
+{
+    auto x = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+    auto x1 = zerosLike!(UseGradient.yes)(x);
+
+    static assert(canBackward!(typeof(x1)));
+}
+
 
 ///
-Tensor!(T, Shape, No.gradient) ones(T, size_t[] Shape)()
+Tensor!(T, Shape, useGrad) ones(T, size_t[] Shape, UseGradient useGrad = UseGradient.no)()
 if (Shape[0] != 0)
 {
     return new typeof(return)(numir.ones!T(Shape));
 }
 
 ///ditto
-Tensor!(T, Shape, No.gradient) ones(T, size_t[] Shape)(size_t batchSize)
+Tensor!(T, Shape, useGrad) ones(T, size_t[] Shape, UseGradient useGrad = UseGradient.no)(size_t batchSize)
 if (Shape[0] == 0)
 {
     return new typeof(return)(numir.ones!T([batchSize, expandShape!(Shape[1 .. $])]));
@@ -927,7 +1015,15 @@ unittest
     assert(o.value[1, 1] == 1);
 }
 
-Tensor!(T, Shape, No.gradient) onesLike(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+///ditto
+unittest
+{
+    auto o = ones!(float, [2, 3], UseGradient.yes);
+    static assert(canBackward!(typeof(o)));
+}
+
+///
+Tensor!(T, Shape, UseGradient.no) onesLike(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
 {
     static if (x.staticShape[0] == 0)
     {
@@ -939,6 +1035,20 @@ Tensor!(T, Shape, No.gradient) onesLike(T, size_t[] Shape, UseGradient useGradie
     }
 }
 
+///ditto
+Tensor!(T, Shape, useGrad) onesLike(UseGradient useGrad, T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
+{
+    static if (x.staticShape[0] == 0)
+    {
+        return ones!(T, Shape, useGrad)(x.shape[0]);
+    }
+    else
+    {
+        return ones!(T, Shape, useGrad)();
+    }
+}
+
+///ditto
 unittest
 {
     auto x = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
@@ -948,6 +1058,7 @@ unittest
     assert(x1.value == ones!(float, [2, 2]).value);
 }
 
+///ditto
 unittest
 {
     auto x = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
@@ -957,10 +1068,11 @@ unittest
     assert(x1.value == ones!(float, [2, 3]).value);
 }
 
+///ditto
 unittest
 {
-    auto x = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
-    auto x1 = onesLike(x);
+    auto x = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+    auto x1 = onesLike!(UseGradient.yes)(x);
 
-    assert(x !is x1);
+    static assert(canBackward!(typeof(x1)));
 }
