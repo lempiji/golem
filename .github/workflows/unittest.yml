@@ -17,7 +17,7 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - uses: dlang-community/setup-dlang@7c3e57bdc1ff2d8994f00e61b3ef400e67d2d7ac
+    - uses: dlang-community/setup-dlang@v1
 
     - name: 'Install openblas-dev'
       run: |
