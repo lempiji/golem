@@ -1667,21 +1667,27 @@ version (all) // boradcastOp
 
             static if (useGrad1 || useGrad2)
             {
-                x.usedCount++;
-                y.usedCount++;
+                static if (useGrad1) x.usedCount++;
+                static if (useGrad2) y.usedCount++;
                 return new Tensor!(T, Shape1, UseGradient.yes)(z, (grads) {
-                    x.backward((ref xGrads) {
-                        foreach (ref t; zip(xGrads.pack!Dim2, grads.pack!Dim2))
-                        {
-                            t[0][] += t[1][] * yv[];
-                        }
-                    });
-                    y.backward((ref yGrads) {
-                        foreach (ref t; zip(grads.pack!Dim2, x.value.pack!Dim2))
-                        {
-                            yGrads[] += t[0] * t[1];
-                        }
-                    });
+                    static if (useGrad1)
+                    {
+                        x.backward((ref xGrads) {
+                            foreach (ref t; zip(xGrads.pack!Dim2.flattened, grads.pack!Dim2.flattened))
+                            {
+                                t[0][] += t[1][] * yv[];
+                            }
+                        });
+                    }
+                    static if (useGrad2)
+                    {
+                        y.backward((ref yGrads) {
+                            foreach (ref t; zip(grads.pack!Dim2.flattened, x.value.pack!Dim2.flattened))
+                            {
+                                yGrads[] += t[0] * t[1];
+                            }
+                        });
+                    }
                 });
             }
             else
@@ -1724,5 +1730,33 @@ version (all) // boradcastOp
         assert(y.grads[0, 1] == 2.0 + 6.0);
         assert(y.grads[1, 0] == 3.0 + 7.0);
         assert(y.grads[1, 1] == 4.0 + 8.0);
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([2], UseGradient.no)([10.0, 20.0]);
+
+        auto z = broadcastOp!"*"(x, y);
+        z.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([2])([10.0, 20.0]);
+
+        auto z = broadcastOp!"*"(x, y);
+        z.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([2], UseGradient.no)([10.0, 20.0]);
+
+        auto z = broadcastOp!"*"(x, y);
+
+        static assert(!canBackward!(typeof(z)));
     }
 }
