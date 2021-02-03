@@ -1571,18 +1571,24 @@ version (all) // boradcastOp
 
             static if (useGrad1 || useGrad2)
             {
-                x.usedCount++;
-                y.usedCount++;
+                static if (useGrad1) x.usedCount++;
+                static if (useGrad2) y.usedCount++;
                 return new Tensor!(T, Shape1, UseGradient.yes)(z, (grads) {
-                    x.backward(grads);
-                    y.backward((ref yGrads) {
-                        import mir.math.sum : mirsum = sum;
+                    static if (useGrad1)
+                    {
+                        x.backward(grads);
+                    }
+                    static if (useGrad2)
+                    {
+                        y.backward((ref yGrads) {
+                            import mir.math.sum : mirsum = sum;
 
-                        static if (op == "+")
-                            yGrads[] += grads.transposed!(expandIndex!(Dim1 - Dim2, Dim1)).ipack!Dim2.map!(a => mirsum(a));
-                        else
-                            yGrads[] -= grads.transposed!(expandIndex!(Dim1 - Dim2, Dim1)).ipack!Dim2.map!(a => mirsum(a));
-                    });
+                            static if (op == "+")
+                                yGrads[] += grads.transposed!(expandIndex!(Dim1 - Dim2, Dim1)).ipack!Dim2.map!(a => mirsum(a));
+                            else
+                                yGrads[] -= grads.transposed!(expandIndex!(Dim1 - Dim2, Dim1)).ipack!Dim2.map!(a => mirsum(a));
+                        });
+                    }
                 });
             }
             else
@@ -1647,6 +1653,40 @@ version (all) // boradcastOp
         z.backward();
 
         assert(x.grads == [[0.0, 0.0], [0.0, 0.0]]);
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([2], UseGradient.no)([10.0, 20.0]);
+
+        auto z = broadcastOp!"+"(x, y);
+        auto w = broadcastOp!"-"(x, y);
+        z.backward();
+        w.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([2])([10.0, 20.0]);
+
+        auto z = broadcastOp!"+"(x, y);
+        auto w = broadcastOp!"-"(x, y);
+        z.backward();
+        w.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([2], UseGradient.no)([10.0, 20.0]);
+
+        auto z = broadcastOp!"+"(x, y);
+        auto w = broadcastOp!"-"(x, y);
+
+        static assert(!canBackward!(typeof(z)));
+        static assert(!canBackward!(typeof(w)));
     }
 
     template broadcastOp(string op)
