@@ -100,6 +100,25 @@ Tensor!(float, [0, 3, 224, 224]) images;
 Tensor!(float, [0, 28, 28], UseGradient.no) mnistImages;
 ```
 
+### Broadcast Operation
+
+```d
+Tensor!(float, [0, 28, 28]) images;
+Tensor!(float, [28, 28]) offset;
+
+// shape rule for broadcast
+assert(images.shape.length > offset.shape.length);
+assert(images.shape[$ - offset.shape.length .. $] == offset.shape);
+
+// broadcast
+auto result1 = broadcastOp!"+"(images, offset);
+auto result2 = broadcastOp!"-"(images, offset);
+auto result3 = broadcastOp!"*"(images, offset);
+
+// implement broadcast!"/"
+auto result4 = broadcastOp!"/"(images, onesLike(offset) / offset);
+```
+
 ### Linear
 
 ```d
