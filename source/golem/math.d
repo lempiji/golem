@@ -1572,6 +1572,7 @@ version (all) // boradcastOp
             static if (useGrad1 || useGrad2)
             {
                 x.usedCount++;
+                y.usedCount++;
                 return new Tensor!(T, Shape1, UseGradient.yes)(z, (grads) {
                     x.backward(grads);
                     y.backward((ref yGrads) {
@@ -1645,6 +1646,83 @@ version (all) // boradcastOp
 
         z.backward();
 
-        assert(x.grads == [[1.0, 1.0], [1.0, 1.0]]);
+        assert(x.grads == [[0.0, 0.0], [0.0, 0.0]]);
+    }
+
+    template broadcastOp(string op)
+    if (op == "*")
+    {
+        auto broadcastOp(T, size_t[] Shape1, UseGradient useGrad1, size_t[] Shape2, UseGradient useGrad2)(
+                Tensor!(T, Shape1, useGrad1) x, Tensor!(T, Shape2, useGrad2) y)
+        {
+            enum Dim1 = Shape1.length;
+            enum Dim2 = Shape2.length;
+
+            static assert(Shape1[$ - Dim2 .. $] == Shape2);
+
+            alias binOp = (a, b) => a * b;
+            
+            auto yv = y.value;
+            auto z = x.value.pack!Dim2.map!(a => binOp(a, yv)).fuse();
+
+            static if (useGrad1 || useGrad2)
+            {
+                x.usedCount++;
+                y.usedCount++;
+                return new Tensor!(T, Shape1, UseGradient.yes)(z, (grads) {
+                    x.backward((ref xGrads) {
+                        foreach (ref t; zip(xGrads.pack!Dim2, grads.pack!Dim2))
+                        {
+                            t[0][] += t[1][] * yv[];
+                        }
+                    });
+                    y.backward((ref yGrads) {
+                        foreach (ref t; zip(grads.pack!Dim2, x.value.pack!Dim2))
+                        {
+                            yGrads[] += t[0] * t[1];
+                        }
+                    });
+                });
+            }
+            else
+            {
+                return new Tensor!(T, Shape1, UseGradient.no)(z);
+            }
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        auto y = tensor!([2, 2])([0.2, 0.4, 0.6, 0.8]);
+
+        auto z = broadcastOp!"*"(x, y);
+
+        import std.math : approxEqual;
+
+        assert(z.value[0, 0, 0].approxEqual(1.0 * 0.2));
+        assert(z.value[0, 0, 1].approxEqual(2.0 * 0.4));
+        assert(z.value[0, 1, 0].approxEqual(3.0 * 0.6));
+        assert(z.value[0, 1, 1].approxEqual(4.0 * 0.8));
+        assert(z.value[1, 0, 0].approxEqual(5.0 * 0.2));
+        assert(z.value[1, 0, 1].approxEqual(6.0 * 0.4));
+        assert(z.value[1, 1, 0].approxEqual(7.0 * 0.6));
+        assert(z.value[1, 1, 1].approxEqual(8.0 * 0.8));
+
+        z.backward();
+
+        assert(x.grads[0, 0, 0].approxEqual(0.2));
+        assert(x.grads[0, 0, 1].approxEqual(0.4));
+        assert(x.grads[0, 1, 0].approxEqual(0.6));
+        assert(x.grads[0, 1, 1].approxEqual(0.8));
+        assert(x.grads[1, 0, 0].approxEqual(0.2));
+        assert(x.grads[1, 0, 1].approxEqual(0.4));
+        assert(x.grads[1, 1, 0].approxEqual(0.6));
+        assert(x.grads[1, 1, 1].approxEqual(0.8));
+
+        assert(y.grads[0, 0] == 1.0 + 5.0);
+        assert(y.grads[0, 1] == 2.0 + 6.0);
+        assert(y.grads[1, 0] == 3.0 + 7.0);
+        assert(y.grads[1, 1] == 4.0 + 8.0);
     }
 }
