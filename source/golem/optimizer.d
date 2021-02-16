@@ -310,8 +310,22 @@ auto createOptimizer(alias Optimizer, Params...)(Params params) if (Params.lengt
     {
         static if (allSatisfy!(isTensor, Params))
         {
-            alias OptimizerImpl = Optimizer!(Params);
-            return new OptimizerImpl(params);
+            static if (allSatisfy!(canBackward, Params))
+            {
+                alias OptimizerImpl = Optimizer!(Params);
+                return new OptimizerImpl(params);
+            }
+            else
+            {
+                enum trainablePos = staticIndexOf!(canNotBackward, Params);
+
+                // dfmt off
+                return createOptimizer!Optimizer(
+                    params[0 .. trainablePos],
+                    params[trainablePos + 1 .. $]
+                );
+                // dfmt on
+            }
         }
         else
         {
@@ -390,4 +404,54 @@ unittest
     assert(optimizer !is null);
 }
 
+unittest
+{
+    import golem.nn : Linear;
+
+    auto fc1 = new Linear!(float, 2, 2, UseGradient.no);
+    auto fc2 = new Linear!(float, 2, 1);
+
+    auto optimizer = createOptimizer!Adam(fc1, fc2);
+    assert(optimizer !is null);
+}
+
+unittest
+{
+    import golem.nn : Linear;
+
+    auto fc1 = new Linear!(float, 2, 2);
+    auto fc2 = new Linear!(float, 2, 1, UseGradient.no);
+
+    auto optimizer = createOptimizer!Adam(fc1, fc2);
+    assert(optimizer !is null);
+}
+
+unittest
+{
+    import golem.nn : Linear, BatchNorm;
+
+    class Model
+    {
+        Linear!(float, 2, 2) fc1;
+        BatchNorm!(float, [2]) bn1;
+
+        alias parameters = AliasSeq!(fc1, bn1);
+
+        this()
+        {
+            foreach (ref p; parameters)
+                p = new typeof(p);
+        }
+    }
+
+    auto model = new Model;
+    auto optimizer = createOptimizer!SGD(model);
+    assert(optimizer !is null);
+}
+
 private alias mapValue(T) = T.Value;
+
+private template canNotBackward(T)
+{
+    enum canNotBackward = !canBackward!(T);
+}
