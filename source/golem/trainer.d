@@ -5,7 +5,6 @@ import golem.tensor;
 ///
 class EarlyStopping(T)
 {
-	immutable size_t maxEpoch = size_t.max;
 	immutable size_t patience = 3;
 
 	size_t patienceStep = 0;
