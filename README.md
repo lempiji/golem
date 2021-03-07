@@ -2,15 +2,47 @@
 
 ![D](https://github.com/lempiji/golem/workflows/D/badge.svg)
 
+A library that provides tensors and computational graphs for machine learning.
+
+## Concept
+
+1. Lower the hurdle and learning curve to getting started.
+2. Use language features to make model description simple and safe.
+3. Unify the code and language for training and production environments.
+
 ## Features
 
-- Computational graph (autograd)
-- A statically size checked slice
+- A statically size checked tensor
   - with shape-safe operators
 - Statically omit grads from tensor
   - `UseGradient.no` or `No.gradient`
 - Some friendly error messages
 - Simple `SGD` , `Adam` or `AdaBelief` optimizer
+
+## Usage
+
+__command__
+
+```console
+dub init
+dub add golem
+```
+
+__dub.json__
+
+```json
+{
+    "dependencies": [
+        "golem": "~>0.5.0"
+    ]
+}
+```
+
+__dub.sdl__
+
+```json
+dependency "golem" version="~>0.5.0"
+```
 
 ## Examples
 
