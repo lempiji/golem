@@ -1136,7 +1136,7 @@ version (all) // softmax
 
 version (all) // softmaxCrossEntropy
 {
-    Tensor!(T, [1]) softmaxCrossEntropy(T, size_t[] Shape1, size_t[] Shape2, UseGradient useGrad)(Tensor!(T, Shape1, useGrad) x, Tensor!(T, Shape2, UseGradient.no) y)
+    Tensor!(T, [Shape1[0], 1]) softmaxCrossEntropy(T, size_t[] Shape1, size_t[] Shape2, UseGradient useGrad)(Tensor!(T, Shape1, useGrad) x, Tensor!(T, Shape2, UseGradient.no) y)
     if (Shape1.length == 2 && Shape2.length == 2 && Shape1[1] == Shape2[1])
     {
         static assert(Shape1[0] == 0 || Shape2[0] == 0 || Shape1[0] == Shape2[0]);
@@ -1146,19 +1146,14 @@ version (all) // softmaxCrossEntropy
         import mir.math.sum : sum;
         import std.math : exp, log;
 
-        const batchSize = x.shape[0];
-        T[] u = new T[batchSize];
-        T a = T(0);
-        T b = T(0);
-        foreach (i; 0 .. batchSize)
-        {
-            a += zip(x.value[i], y.value[i]).map!"a*b"().sum!"fast"();
-            const temp = x.value[i].map!exp.sum!"fast"();
-            u[i] = 1 / temp;
-            b += log(temp);
-        }
+        const c = T(1) / x.shape[1];
 
-        auto z = slice([1], (b - a) / batchSize);
+        auto t = x.value.ipack!1.map!(r => sum!"fast"(r.map!exp));
+
+        int err;
+        auto z = (c * (t.map!(a => cast(T) log(a)) - (x.value * y.value).ipack!1.map!(a => sum!"fast"(a))))
+            .fuse()
+            .reshape([x.shape[0], 1], err);
 
         x.usedCount++;
         alias Return = typeof(return);
@@ -1166,11 +1161,14 @@ version (all) // softmaxCrossEntropy
 
         return new Return(z, (Value grads) {
             x.backward((ref xGrads) {
-                const c = grads[0] / batchSize;
-                foreach (i; 0 .. batchSize)
+                immutable p = T(1) / xGrads.shape[1];
+                foreach (i; 0 .. xGrads.shape[0])
                 {
-                    const ut = u[i];
-                    xGrads[i][] += (x.value[i].map!(a => exp(a) * ut) - y.value[i]) * c;
+                    const ti = t[i];
+                    foreach (j; 0 .. xGrads.shape[1])
+                    {
+                        xGrads[i, j] += p * (exp(x.value[i, j]) / ti - y.value[i, j]) * grads[i, 0];
+                    }
                 }
             });
         });
@@ -1192,29 +1190,33 @@ version (all) // softmaxCrossEntropy
         ]);
 
         auto loss = softmaxCrossEntropy(x, y);
-        static assert(loss.shape == [1]);
+        assert(loss.shape == [4, 1]);
 
         import std.math : approxEqual, E;
+        import std.conv : text;
 
-        assert(loss.value[0].approxEqual(0.688236607616066));
+        assert(loss.value[0, 0].approxEqual(0.366204), text(loss.value[0, 0]));
+        assert(loss.value[1, 0].approxEqual(0.183815), text(loss.value[1, 0]));
+        assert(loss.value[2, 0].approxEqual(0.183815), text(loss.value[2, 0]));
+        assert(loss.value[3, 0].approxEqual(0.183815), text(loss.value[3, 0]));
 
         loss.backward();
 
-        enum double g1 = 1.0 / (8.0 + 4 * E);
-        enum double g2 = -1.0 / (4.0 + 2 * E);
+        enum double g1 = 1.0 / (6.0 + 3 * E);
+        enum double g2 = -2.0 / (6.0 + 3 * E);
 
-        assert(x.grads[0, 0].approxEqual(1.0 / 12));
-        assert(x.grads[0, 1].approxEqual(1.0 / 12));
-        assert(x.grads[0, 2].approxEqual(-1.0 / 6));
-        assert(x.grads[1, 0].approxEqual(g1));
-        assert(x.grads[1, 1].approxEqual(g1));
-        assert(x.grads[1, 2].approxEqual(g2));
-        assert(x.grads[2, 0].approxEqual(g1));
-        assert(x.grads[2, 1].approxEqual(g2));
-        assert(x.grads[2, 2].approxEqual(g1));
-        assert(x.grads[3, 0].approxEqual(g2));
-        assert(x.grads[3, 1].approxEqual(g1));
-        assert(x.grads[3, 2].approxEqual(g1));
+        assert(x.grads[0, 0].approxEqual(1.0 / 9), text(x.grads));
+        assert(x.grads[0, 1].approxEqual(1.0 / 9), text(x.grads));
+        assert(x.grads[0, 2].approxEqual(-2.0 / 9), text(x.grads));
+        assert(x.grads[1, 0].approxEqual(g1), text(x.grads));
+        assert(x.grads[1, 1].approxEqual(g1), text(x.grads));
+        assert(x.grads[1, 2].approxEqual(g2), text(x.grads));
+        assert(x.grads[2, 0].approxEqual(g1), text(x.grads));
+        assert(x.grads[2, 1].approxEqual(g2), text(x.grads));
+        assert(x.grads[2, 2].approxEqual(g1), text(x.grads));
+        assert(x.grads[3, 0].approxEqual(g2), text(x.grads));
+        assert(x.grads[3, 1].approxEqual(g1), text(x.grads));
+        assert(x.grads[3, 2].approxEqual(g1), text(x.grads));
     }
 }
 

@@ -140,9 +140,9 @@ class Model
 
 	auto loss(T, U)(T output, U label)
 	{
-		import golem.math : softmaxCrossEntropy;
+		import golem.math : softmaxCrossEntropy, mean;
 
-		return softmaxCrossEntropy(output, label);
+		return mean(softmaxCrossEntropy(output, label));
 	}
 }
 

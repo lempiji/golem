@@ -174,6 +174,6 @@ class Discriminator
 
 	auto loss(UseGradient useGrad)(Tensor!(float, [0, 2], useGrad) data, Tensor!(float, [0, 2], UseGradient.no) label)
 	{
-		return softmaxCrossEntropy(data, label);
+		return mean(softmaxCrossEntropy(data, label));
 	}
 }
