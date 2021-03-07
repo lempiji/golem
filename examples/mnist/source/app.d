@@ -150,6 +150,6 @@ class Model
 
 	auto loss(T, U)(T output, U label)
 	{
-		return softmaxCrossEntropy(output, label);
+		return mean(softmaxCrossEntropy(output, label));
 	}
 }
