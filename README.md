@@ -32,9 +32,9 @@ __dub.json__
 
 ```json
 {
-    "dependencies": [
+    "dependencies": {
         "golem": "~>0.5.0"
-    ]
+    }
 }
 ```
 
