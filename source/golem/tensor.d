@@ -757,25 +757,25 @@ unittest
     auto y = 3.0 * x;
     auto z = x * 0.5;
 
-    import std.math : approxEqual;
+    import std.math : isClose;
 
-    assert(y.value[0, 0, 0].approxEqual(0.1 * 3.0));
-    assert(y.value[0, 0, 1].approxEqual(0.2 * 3.0));
-    assert(y.value[0, 1, 0].approxEqual(0.3 * 3.0));
-    assert(y.value[0, 1, 1].approxEqual(0.4 * 3.0));
-    assert(y.value[1, 0, 0].approxEqual(0.5 * 3.0));
-    assert(y.value[1, 0, 1].approxEqual(0.6 * 3.0));
-    assert(y.value[1, 1, 0].approxEqual(0.7 * 3.0));
-    assert(y.value[1, 1, 1].approxEqual(0.8 * 3.0));
+    assert(y.value[0, 0, 0].isClose(0.1 * 3.0));
+    assert(y.value[0, 0, 1].isClose(0.2 * 3.0));
+    assert(y.value[0, 1, 0].isClose(0.3 * 3.0));
+    assert(y.value[0, 1, 1].isClose(0.4 * 3.0));
+    assert(y.value[1, 0, 0].isClose(0.5 * 3.0));
+    assert(y.value[1, 0, 1].isClose(0.6 * 3.0));
+    assert(y.value[1, 1, 0].isClose(0.7 * 3.0));
+    assert(y.value[1, 1, 1].isClose(0.8 * 3.0));
     
-    assert(z.value[0, 0, 0].approxEqual(0.1 * 0.5));
-    assert(z.value[0, 0, 1].approxEqual(0.2 * 0.5));
-    assert(z.value[0, 1, 0].approxEqual(0.3 * 0.5));
-    assert(z.value[0, 1, 1].approxEqual(0.4 * 0.5));
-    assert(z.value[1, 0, 0].approxEqual(0.5 * 0.5));
-    assert(z.value[1, 0, 1].approxEqual(0.6 * 0.5));
-    assert(z.value[1, 1, 0].approxEqual(0.7 * 0.5));
-    assert(z.value[1, 1, 1].approxEqual(0.8 * 0.5));
+    assert(z.value[0, 0, 0].isClose(0.1 * 0.5));
+    assert(z.value[0, 0, 1].isClose(0.2 * 0.5));
+    assert(z.value[0, 1, 0].isClose(0.3 * 0.5));
+    assert(z.value[0, 1, 1].isClose(0.4 * 0.5));
+    assert(z.value[1, 0, 0].isClose(0.5 * 0.5));
+    assert(z.value[1, 0, 1].isClose(0.6 * 0.5));
+    assert(z.value[1, 1, 0].isClose(0.7 * 0.5));
+    assert(z.value[1, 1, 1].isClose(0.8 * 0.5));
 
     y.backward();
     z.backward();
