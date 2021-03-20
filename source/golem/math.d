@@ -34,18 +34,18 @@ version (all) // exp
         auto x = tensor!([2])([-1.0f, 1.0f]);
         auto y = exp(x);
 
-        import std.math : stdexp = exp, approxEqual;
+        import std.math : stdexp = exp, isClose;
 
-        assert(y.value[0].approxEqual(stdexp(-1.0f)));
-        assert(y.value[1].approxEqual(stdexp(1.0f)));
+        assert(y.value[0].isClose(stdexp(-1.0f)));
+        assert(y.value[1].isClose(stdexp(1.0f)));
 
         y.resetGrads();
         y.backward();
 
         import std : format;
 
-        assert(x.grads[0].approxEqual(y.value[0]), "%s : %s".format(x.grads[0], y.value[0]));
-        assert(x.grads[1].approxEqual(y.value[1]), "%s : %s".format(x.grads[1], y.value[1]));
+        assert(x.grads[0].isClose(y.value[0]), "%s : %s".format(x.grads[0], y.value[0]));
+        assert(x.grads[1].isClose(y.value[1]), "%s : %s".format(x.grads[1], y.value[1]));
     }
 
     unittest
@@ -70,12 +70,12 @@ version (all) // exp
         auto x = tensor!([2, 2], No.gradient)([1.0, 2.0, 3.0, 4.0]);
         auto y = exp(x);
         
-        import std.math : stdexp = exp, approxEqual;
+        import std.math : stdexp = exp, isClose;
 
-        assert(y.value[0, 0].approxEqual(stdexp(1.0f)));
-        assert(y.value[0, 1].approxEqual(stdexp(2.0f)));
-        assert(y.value[1, 0].approxEqual(stdexp(3.0f)));
-        assert(y.value[1, 1].approxEqual(stdexp(4.0f)));
+        assert(y.value[0, 0].isClose(stdexp(1.0f)));
+        assert(y.value[0, 1].isClose(stdexp(2.0f)));
+        assert(y.value[1, 0].isClose(stdexp(3.0f)));
+        assert(y.value[1, 1].isClose(stdexp(4.0f)));
     }
 }
 
@@ -112,19 +112,19 @@ version (all) // log
         ]);
         auto y = log(x);
 
-        import std.math : stdlog = log, approxEqual;
+        import std.math : stdlog = log, isClose;
 
-        assert(y.value[0, 0].approxEqual(stdlog(1.0)));
-        assert(y.value[0, 1].approxEqual(stdlog(2.0)));
-        assert(y.value[1, 0].approxEqual(stdlog(3.0)));
-        assert(y.value[1, 1].approxEqual(stdlog(4.0)));
+        assert(y.value[0, 0].isClose(stdlog(1.0)));
+        assert(y.value[0, 1].isClose(stdlog(2.0)));
+        assert(y.value[1, 0].isClose(stdlog(3.0)));
+        assert(y.value[1, 1].isClose(stdlog(4.0)));
 
         y.backward();
 
-        assert(x.grads[0, 0].approxEqual(1.0 / 1.0));
-        assert(x.grads[0, 1].approxEqual(1.0 / 2.0));
-        assert(x.grads[1, 0].approxEqual(1.0 / 3.0));
-        assert(x.grads[1, 1].approxEqual(1.0 / 4.0));
+        assert(x.grads[0, 0].isClose(1.0 / 1.0));
+        assert(x.grads[0, 1].isClose(1.0 / 2.0));
+        assert(x.grads[1, 0].isClose(1.0 / 3.0));
+        assert(x.grads[1, 1].isClose(1.0 / 4.0));
     }
 }
 
@@ -159,19 +159,19 @@ version (all) // sigmoid
         auto y = sigmoid(x);
 
         import std.format : format;
-        import std.math : exp, approxEqual;
+        import std.math : exp, isClose;
 
-        assert(y.value[0, 0].approxEqual(1.0f / (1.0f + exp(+1.0f))), "%s".format(y.value));
-        assert(y.value[1, 0].approxEqual(1.0f / (1.0f + exp(0.0f))), "%s".format(y.value));
-        assert(y.value[2, 0].approxEqual(1.0f / (1.0f + exp(-1.0f))), "%s".format(y.value));
+        assert(y.value[0, 0].isClose(1.0f / (1.0f + exp(+1.0f))), "%s".format(y.value));
+        assert(y.value[1, 0].isClose(1.0f / (1.0f + exp(0.0f))), "%s".format(y.value));
+        assert(y.value[2, 0].isClose(1.0f / (1.0f + exp(-1.0f))), "%s".format(y.value));
 
         y.backward();
 
-        assert(x.grads[0, 0].approxEqual(y.value[0, 0] * (1.0 - y.value[0, 0])),
+        assert(x.grads[0, 0].isClose(y.value[0, 0] * (1.0 - y.value[0, 0])),
                 "%s".format(x.grads));
-        assert(x.grads[1, 0].approxEqual(y.value[1, 0] * (1.0 - y.value[1, 0])),
+        assert(x.grads[1, 0].isClose(y.value[1, 0] * (1.0 - y.value[1, 0])),
                 "%s".format(x.grads));
-        assert(x.grads[2, 0].approxEqual(y.value[2, 0] * (1.0 - y.value[2, 0])),
+        assert(x.grads[2, 0].isClose(y.value[2, 0] * (1.0 - y.value[2, 0])),
                 "%s".format(x.grads));
     }
 
@@ -181,11 +181,11 @@ version (all) // sigmoid
         auto y = sigmoid(x);
         
         import std.format : format;
-        import std.math : exp, approxEqual;
+        import std.math : exp, isClose;
 
-        assert(y.value[0, 0].approxEqual(1.0f / (1.0f + exp(+1.0f))), "%s".format(y.value));
-        assert(y.value[1, 0].approxEqual(1.0f / (1.0f + exp(0.0f))), "%s".format(y.value));
-        assert(y.value[2, 0].approxEqual(1.0f / (1.0f + exp(-1.0f))), "%s".format(y.value));
+        assert(y.value[0, 0].isClose(1.0f / (1.0f + exp(+1.0f))), "%s".format(y.value));
+        assert(y.value[1, 0].isClose(1.0f / (1.0f + exp(0.0f))), "%s".format(y.value));
+        assert(y.value[2, 0].isClose(1.0f / (1.0f + exp(-1.0f))), "%s".format(y.value));
     }
 }
 
@@ -216,19 +216,19 @@ version (all) // tanh
         auto x = tensor!([2])([-1.0f, 1.0f]);
         auto y = tanh(x);
 
-        import std.math : stdtanh = tanh, approxEqual;
+        import std.math : stdtanh = tanh, isClose;
 
-        assert(y.value[0].approxEqual(stdtanh(-1.0f)));
-        assert(y.value[1].approxEqual(stdtanh(1.0f)));
+        assert(y.value[0].isClose(stdtanh(-1.0f)));
+        assert(y.value[1].isClose(stdtanh(1.0f)));
 
         y.resetGrads();
         y.backward();
 
         import std : format;
 
-        assert(x.grads[0].approxEqual(1 - y.value[0] ^^ 2),
+        assert(x.grads[0].isClose(1 - y.value[0] ^^ 2),
                 "%s : %s".format(x.grads[0], y.value[0]));
-        assert(x.grads[1].approxEqual(1 - y.value[1] ^^ 2),
+        assert(x.grads[1].isClose(1 - y.value[1] ^^ 2),
                 "%s : %s".format(x.grads[1], y.value[1]));
     }
     
@@ -237,10 +237,10 @@ version (all) // tanh
         auto x = tensor!([2], No.gradient)([-1.0f, 1.0f]);
         auto y = tanh(x);
 
-        import std.math : stdtanh = tanh, approxEqual;
+        import std.math : stdtanh = tanh, isClose;
 
-        assert(y.value[0].approxEqual(stdtanh(-1.0f)));
-        assert(y.value[1].approxEqual(stdtanh(1.0f)));
+        assert(y.value[0].isClose(stdtanh(-1.0f)));
+        assert(y.value[1].isClose(stdtanh(1.0f)));
     }
 }
 
@@ -271,19 +271,19 @@ version (all) // sinh
         auto x = tensor!([2])([-1.0f, 1.0f]);
         auto y = sinh(x);
 
-        import std.math : stdsinh = sinh, stdcosh = cosh, approxEqual;
+        import std.math : stdsinh = sinh, stdcosh = cosh, isClose;
 
-        assert(y.value[0].approxEqual(stdsinh(-1.0f)));
-        assert(y.value[1].approxEqual(stdsinh(1.0f)));
+        assert(y.value[0].isClose(stdsinh(-1.0f)));
+        assert(y.value[1].isClose(stdsinh(1.0f)));
 
         y.resetGrads();
         y.backward();
 
         import std : format;
 
-        assert(x.grads[0].approxEqual(stdcosh(-1.0f)),
+        assert(x.grads[0].isClose(stdcosh(-1.0f)),
                 "%s : %s".format(x.grads[0], y.value[0]));
-        assert(x.grads[1].approxEqual(stdcosh(1.0f)),
+        assert(x.grads[1].isClose(stdcosh(1.0f)),
                 "%s : %s".format(x.grads[1], y.value[1]));
     }
     
@@ -292,10 +292,10 @@ version (all) // sinh
         auto x = tensor!([2], No.gradient)([-1.0f, 1.0f]);
         auto y = sinh(x);
 
-        import std.math : stdsinh = sinh, approxEqual;
+        import std.math : stdsinh = sinh, isClose;
 
-        assert(y.value[0].approxEqual(stdsinh(-1.0f)));
-        assert(y.value[1].approxEqual(stdsinh(1.0f)));
+        assert(y.value[0].isClose(stdsinh(-1.0f)));
+        assert(y.value[1].isClose(stdsinh(1.0f)));
     }
 }
 
@@ -326,19 +326,19 @@ version (all) // asinh
         auto x = tensor!([2])([-1.0f, 1.0f]);
         auto y = asinh(x);
 
-        import std.math : stdasinh = asinh, stdsqrt = sqrt, approxEqual;
+        import std.math : stdasinh = asinh, stdsqrt = sqrt, isClose;
 
-        assert(y.value[0].approxEqual(stdasinh(-1.0f)));
-        assert(y.value[1].approxEqual(stdasinh(1.0f)));
+        assert(y.value[0].isClose(stdasinh(-1.0f)));
+        assert(y.value[1].isClose(stdasinh(1.0f)));
 
         y.resetGrads();
         y.backward();
 
         import std : format;
 
-        assert(x.grads[0].approxEqual(1 / stdsqrt(-1.0f * -1.0f + 1)),
+        assert(x.grads[0].isClose(1 / stdsqrt(-1.0f * -1.0f + 1)),
                 "%s : %s".format(x.grads[0], y.value[0]));
-        assert(x.grads[1].approxEqual(1 / stdsqrt(1.0f * 1.0f + 1)),
+        assert(x.grads[1].isClose(1 / stdsqrt(1.0f * 1.0f + 1)),
                 "%s : %s".format(x.grads[1], y.value[1]));
     }
     
@@ -347,10 +347,10 @@ version (all) // asinh
         auto x = tensor!([2], No.gradient)([-1.0f, 1.0f]);
         auto y = asinh(x);
 
-        import std.math : stdasinh = asinh, approxEqual;
+        import std.math : stdasinh = asinh, isClose;
 
-        assert(y.value[0].approxEqual(stdasinh(-1.0f)));
-        assert(y.value[1].approxEqual(stdasinh(1.0f)));
+        assert(y.value[0].isClose(stdasinh(-1.0f)));
+        assert(y.value[1].isClose(stdasinh(1.0f)));
     }
 }
 
@@ -381,19 +381,19 @@ version (all) // cosh
         auto x = tensor!([2])([-1.0f, 1.0f]);
         auto y = cosh(x);
 
-        import std.math : stdcosh = cosh, stdsinh = sinh, approxEqual;
+        import std.math : stdcosh = cosh, stdsinh = sinh, isClose;
 
-        assert(y.value[0].approxEqual(stdcosh(-1.0f)));
-        assert(y.value[1].approxEqual(stdcosh(1.0f)));
+        assert(y.value[0].isClose(stdcosh(-1.0f)));
+        assert(y.value[1].isClose(stdcosh(1.0f)));
 
         y.resetGrads();
         y.backward();
 
         import std : format;
 
-        assert(x.grads[0].approxEqual(stdsinh(-1.0f)),
+        assert(x.grads[0].isClose(stdsinh(-1.0f)),
                 "%s : %s".format(x.grads[0], y.value[0]));
-        assert(x.grads[1].approxEqual(stdsinh(1.0f)),
+        assert(x.grads[1].isClose(stdsinh(1.0f)),
                 "%s : %s".format(x.grads[1], y.value[1]));
     }
     
@@ -402,10 +402,10 @@ version (all) // cosh
         auto x = tensor!([2], No.gradient)([-1.0f, 1.0f]);
         auto y = cosh(x);
 
-        import std.math : stdcosh = cosh, approxEqual;
+        import std.math : stdcosh = cosh, isClose;
 
-        assert(y.value[0].approxEqual(stdcosh(-1.0f)));
-        assert(y.value[1].approxEqual(stdcosh(1.0f)));
+        assert(y.value[0].isClose(stdcosh(-1.0f)));
+        assert(y.value[1].isClose(stdcosh(1.0f)));
     }
 }
 
@@ -436,19 +436,19 @@ version (all) // acosh
         auto x = tensor!([2])([2.0f, 3.0f]);
         auto y = acosh(x);
 
-        import std.math : stdacosh = acosh, stdsqrt = sqrt, approxEqual;
+        import std.math : stdacosh = acosh, stdsqrt = sqrt, isClose;
 
-        assert(y.value[0].approxEqual(stdacosh(2.0f)));
-        assert(y.value[1].approxEqual(stdacosh(3.0f)));
+        assert(y.value[0].isClose(stdacosh(2.0f)));
+        assert(y.value[1].isClose(stdacosh(3.0f)));
 
         y.resetGrads();
         y.backward();
 
         import std : format;
 
-        assert(x.grads[0].approxEqual(1 / (stdsqrt(2.0f - 1) * stdsqrt(2.0f + 1))),
+        assert(x.grads[0].isClose(1 / (stdsqrt(2.0f - 1) * stdsqrt(2.0f + 1))),
                 "%s : %s".format(x.grads[0], y.value[0]));
-        assert(x.grads[1].approxEqual(1 / (stdsqrt(3.0f - 1) * stdsqrt(3.0f + 1))),
+        assert(x.grads[1].isClose(1 / (stdsqrt(3.0f - 1) * stdsqrt(3.0f + 1))),
                 "%s : %s".format(x.grads[1], y.value[1]));
     }
     
@@ -457,10 +457,10 @@ version (all) // acosh
         auto x = tensor!([2], No.gradient)([2.0f, 3.0f]);
         auto y = acosh(x);
 
-        import std.math : stdacosh = acosh, approxEqual;
+        import std.math : stdacosh = acosh, isClose;
 
-        assert(y.value[0].approxEqual(stdacosh(2.0f)));
-        assert(y.value[1].approxEqual(stdacosh(3.0f)));
+        assert(y.value[0].isClose(stdacosh(2.0f)));
+        assert(y.value[1].isClose(stdacosh(3.0f)));
     }
 }
 
@@ -491,19 +491,19 @@ version (all) // softplus
         auto x = tensor!([2])([-1.0f, 1.0f]);
         auto y = softplus(x);
 
-        import std.math : stdlog = log, stdexp = exp, approxEqual;
+        import std.math : stdlog = log, stdexp = exp, isClose;
 
-        assert(y.value[0].approxEqual(stdlog(1 + stdexp(-1.0f))));
-        assert(y.value[1].approxEqual(stdlog(1 + stdexp(1.0f))));
+        assert(y.value[0].isClose(stdlog(1 + stdexp(-1.0f))));
+        assert(y.value[1].isClose(stdlog(1 + stdexp(1.0f))));
 
         y.resetGrads();
         y.backward();
 
         import std : format;
 
-        assert(x.grads[0].approxEqual(stdexp(-1.0f) / (stdexp(-1.0f) + 1)),
+        assert(x.grads[0].isClose(stdexp(-1.0f) / (stdexp(-1.0f) + 1)),
                 "%s : %s".format(x.grads[0], y.value[0]));
-        assert(x.grads[1].approxEqual(stdexp(1.0f) / (stdexp(1.0f) + 1)),
+        assert(x.grads[1].isClose(stdexp(1.0f) / (stdexp(1.0f) + 1)),
                 "%s : %s".format(x.grads[1], y.value[1]));
     }
     
@@ -512,10 +512,10 @@ version (all) // softplus
         auto x = tensor!([2], No.gradient)([-1.0f, 1.0f]);
         auto y = softplus(x);
 
-        import std.math : stdlog = log, stdexp = exp, approxEqual;
+        import std.math : stdlog = log, stdexp = exp, isClose;
 
-        assert(y.value[0].approxEqual(stdlog(1 + stdexp(-1.0f))));
-        assert(y.value[1].approxEqual(stdlog(1 + stdexp(1.0f))));
+        assert(y.value[0].isClose(stdlog(1 + stdexp(-1.0f))));
+        assert(y.value[1].isClose(stdlog(1 + stdexp(1.0f))));
     }
 }
 
@@ -1123,9 +1123,9 @@ version (all) // softmax
         auto z = tensor!([0, 3], UseGradient.no)([[1.0, 0.0, 0.0]]);
 
         import mir.math.sum : mirsum = sum;
-        import std.math : approxEqual;
+        import std.math : isClose;
 
-        assert(mirsum(y.value).approxEqual(1));
+        assert(mirsum(y.value).isClose(1));
 
         auto t = z - y;
         auto loss = mean(t * t);
@@ -1164,11 +1164,7 @@ version (all) // softmaxCrossEntropy
                 immutable p = T(1) / xGrads.shape[1];
                 foreach (i; 0 .. xGrads.shape[0])
                 {
-                    const ti = t[i];
-                    foreach (j; 0 .. xGrads.shape[1])
-                    {
-                        xGrads[i, j] += p * (exp(x.value[i, j]) / ti - y.value[i, j]) * grads[i, 0];
-                    }
+                    xGrads[i][] += p * (x.value[i].map!exp / t[i] - y.value[i][]) * grads[i, 0];
                 }
             });
         });
@@ -1192,31 +1188,33 @@ version (all) // softmaxCrossEntropy
         auto loss = softmaxCrossEntropy(x, y);
         assert(loss.shape == [4, 1]);
 
-        import std.math : approxEqual, E;
-        import std.conv : text;
+        import std.math : isClose, E;
+        import std.format : format;
 
-        assert(loss.value[0, 0].approxEqual(0.366204), text(loss.value[0, 0]));
-        assert(loss.value[1, 0].approxEqual(0.183815), text(loss.value[1, 0]));
-        assert(loss.value[2, 0].approxEqual(0.183815), text(loss.value[2, 0]));
-        assert(loss.value[3, 0].approxEqual(0.183815), text(loss.value[3, 0]));
+        assert(loss.value[0, 0].isClose(0.3662040962), format!"%.10f"(loss.value[0, 0]));
+        assert(loss.value[1, 0].isClose(0.1838149046), format!"%.10f"(loss.value[1, 0]));
+        assert(loss.value[2, 0].isClose(0.1838149046), format!"%.10f"(loss.value[2, 0]));
+        assert(loss.value[3, 0].isClose(0.1838149046), format!"%.10f"(loss.value[3, 0]));
 
         loss.backward();
 
         enum double g1 = 1.0 / (6.0 + 3 * E);
         enum double g2 = -2.0 / (6.0 + 3 * E);
 
-        assert(x.grads[0, 0].approxEqual(1.0 / 9), text(x.grads));
-        assert(x.grads[0, 1].approxEqual(1.0 / 9), text(x.grads));
-        assert(x.grads[0, 2].approxEqual(-2.0 / 9), text(x.grads));
-        assert(x.grads[1, 0].approxEqual(g1), text(x.grads));
-        assert(x.grads[1, 1].approxEqual(g1), text(x.grads));
-        assert(x.grads[1, 2].approxEqual(g2), text(x.grads));
-        assert(x.grads[2, 0].approxEqual(g1), text(x.grads));
-        assert(x.grads[2, 1].approxEqual(g2), text(x.grads));
-        assert(x.grads[2, 2].approxEqual(g1), text(x.grads));
-        assert(x.grads[3, 0].approxEqual(g2), text(x.grads));
-        assert(x.grads[3, 1].approxEqual(g1), text(x.grads));
-        assert(x.grads[3, 2].approxEqual(g1), text(x.grads));
+        import std.conv : text;
+
+        assert(x.grads[0, 0].isClose(1.0 / 9), text(x.grads));
+        assert(x.grads[0, 1].isClose(1.0 / 9), text(x.grads));
+        assert(x.grads[0, 2].isClose(-2.0 / 9), text(x.grads));
+        assert(x.grads[1, 0].isClose(g1), text(x.grads));
+        assert(x.grads[1, 1].isClose(g1), text(x.grads));
+        assert(x.grads[1, 2].isClose(g2), text(x.grads));
+        assert(x.grads[2, 0].isClose(g1), text(x.grads));
+        assert(x.grads[2, 1].isClose(g2), text(x.grads));
+        assert(x.grads[2, 2].isClose(g1), text(x.grads));
+        assert(x.grads[3, 0].isClose(g2), text(x.grads));
+        assert(x.grads[3, 1].isClose(g1), text(x.grads));
+        assert(x.grads[3, 2].isClose(g1), text(x.grads));
     }
 }
 
@@ -1265,17 +1263,17 @@ version (all) // dropout
         assert(t >= 2); // batchSize * 1
         assert(t <= 2 * 2); // batchSize * round(4 * 0.5)
 
-        import std.math : round, approxEqual;
+        import std.math : round, isClose;
 
         const a = (4 - round(4 * 0.5)) / 4;
-        assert(z.value[0, 0, 0].approxEqual(1.0 * a));
-        assert(z.value[0, 0, 1].approxEqual(2.0 * a));
-        assert(z.value[0, 1, 0].approxEqual(3.0 * a));
-        assert(z.value[0, 1, 1].approxEqual(4.0 * a));
-        assert(z.value[1, 0, 0].approxEqual(5.0 * a));
-        assert(z.value[1, 0, 1].approxEqual(6.0 * a));
-        assert(z.value[1, 1, 0].approxEqual(7.0 * a));
-        assert(z.value[1, 1, 1].approxEqual(8.0 * a));
+        assert(z.value[0, 0, 0].isClose(1.0 * a));
+        assert(z.value[0, 0, 1].isClose(2.0 * a));
+        assert(z.value[0, 1, 0].isClose(3.0 * a));
+        assert(z.value[0, 1, 1].isClose(4.0 * a));
+        assert(z.value[1, 0, 0].isClose(5.0 * a));
+        assert(z.value[1, 0, 1].isClose(6.0 * a));
+        assert(z.value[1, 1, 0].isClose(7.0 * a));
+        assert(z.value[1, 1, 1].isClose(8.0 * a));
     }
 }
 
@@ -1746,27 +1744,27 @@ version (all) // boradcastOp
 
         auto z = broadcastOp!"*"(x, y);
 
-        import std.math : approxEqual;
+        import std.math : isClose;
 
-        assert(z.value[0, 0, 0].approxEqual(1.0 * 0.2));
-        assert(z.value[0, 0, 1].approxEqual(2.0 * 0.4));
-        assert(z.value[0, 1, 0].approxEqual(3.0 * 0.6));
-        assert(z.value[0, 1, 1].approxEqual(4.0 * 0.8));
-        assert(z.value[1, 0, 0].approxEqual(5.0 * 0.2));
-        assert(z.value[1, 0, 1].approxEqual(6.0 * 0.4));
-        assert(z.value[1, 1, 0].approxEqual(7.0 * 0.6));
-        assert(z.value[1, 1, 1].approxEqual(8.0 * 0.8));
+        assert(z.value[0, 0, 0].isClose(1.0 * 0.2));
+        assert(z.value[0, 0, 1].isClose(2.0 * 0.4));
+        assert(z.value[0, 1, 0].isClose(3.0 * 0.6));
+        assert(z.value[0, 1, 1].isClose(4.0 * 0.8));
+        assert(z.value[1, 0, 0].isClose(5.0 * 0.2));
+        assert(z.value[1, 0, 1].isClose(6.0 * 0.4));
+        assert(z.value[1, 1, 0].isClose(7.0 * 0.6));
+        assert(z.value[1, 1, 1].isClose(8.0 * 0.8));
 
         z.backward();
 
-        assert(x.grads[0, 0, 0].approxEqual(0.2));
-        assert(x.grads[0, 0, 1].approxEqual(0.4));
-        assert(x.grads[0, 1, 0].approxEqual(0.6));
-        assert(x.grads[0, 1, 1].approxEqual(0.8));
-        assert(x.grads[1, 0, 0].approxEqual(0.2));
-        assert(x.grads[1, 0, 1].approxEqual(0.4));
-        assert(x.grads[1, 1, 0].approxEqual(0.6));
-        assert(x.grads[1, 1, 1].approxEqual(0.8));
+        assert(x.grads[0, 0, 0].isClose(0.2));
+        assert(x.grads[0, 0, 1].isClose(0.4));
+        assert(x.grads[0, 1, 0].isClose(0.6));
+        assert(x.grads[0, 1, 1].isClose(0.8));
+        assert(x.grads[1, 0, 0].isClose(0.2));
+        assert(x.grads[1, 0, 1].isClose(0.4));
+        assert(x.grads[1, 1, 0].isClose(0.6));
+        assert(x.grads[1, 1, 1].isClose(0.8));
 
         assert(y.grads[0, 0] == 1.0 + 5.0);
         assert(y.grads[0, 1] == 2.0 + 6.0);
