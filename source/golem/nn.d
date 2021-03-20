@@ -158,25 +158,25 @@ unittest
     auto bn = new BatchNorm!(float, [2, 2]);
     auto y = bn(x, true);
 
-    import std.math : approxEqual;
+    import std.math : isClose;
 
-    assert(bn.mean.value[0, 0].approxEqual(0.25f));
-    assert(bn.mean.value[0, 1].approxEqual(0.35f));
-    assert(bn.mean.value[1, 0].approxEqual(0.45f));
-    assert(bn.mean.value[1, 1].approxEqual(0.55f));
+    assert(bn.mean.value[0, 0].isClose(0.25f));
+    assert(bn.mean.value[0, 1].isClose(0.35f));
+    assert(bn.mean.value[1, 0].isClose(0.45f));
+    assert(bn.mean.value[1, 1].isClose(0.55f));
     
-    assert(bn.var.value[0, 0].approxEqual(0.125f));
-    assert(bn.var.value[0, 1].approxEqual(0.125f));
-    assert(bn.var.value[1, 0].approxEqual(0.125f));
-    assert(bn.var.value[1, 1].approxEqual(0.125f));
+    assert(bn.var.value[0, 0].isClose(0.125f));
+    assert(bn.var.value[0, 1].isClose(0.125f));
+    assert(bn.var.value[1, 0].isClose(0.125f));
+    assert(bn.var.value[1, 1].isClose(0.125f));
 
     import std.math : sqrt;
     import std.conv : text;
 
-    assert(y.value[0, 0, 0].approxEqual((1.0f - 2.5f) / sqrt(1.25f)), text(y.value[0, 0, 0]));
-    assert(y.value[0, 0, 1].approxEqual((2.0f - 3.5f) / sqrt(1.25f)), text(y.value[0, 0, 1]));
-    assert(y.value[0, 1, 0].approxEqual((3.0f - 4.5f) / sqrt(1.25f)), text(y.value[0, 1, 0]));
-    assert(y.value[0, 1, 1].approxEqual((4.0f - 5.5f) / sqrt(1.25f)), text(y.value[0, 1, 1]));
+    assert(y.value[0, 0, 0].isClose((1.0f - 2.5f) / sqrt(1.25f)), text(y.value[0, 0, 0]));
+    assert(y.value[0, 0, 1].isClose((2.0f - 3.5f) / sqrt(1.25f)), text(y.value[0, 0, 1]));
+    assert(y.value[0, 1, 0].isClose((3.0f - 4.5f) / sqrt(1.25f)), text(y.value[0, 1, 0]));
+    assert(y.value[0, 1, 1].isClose((4.0f - 5.5f) / sqrt(1.25f)), text(y.value[0, 1, 1]));
 }
 
 unittest
@@ -194,16 +194,16 @@ unittest
     assert(x.grads[] == [[[0.0f, 0.0f], [0.0f, 0.0f]], [[0.0f, 0.0f], [0.0f, 0.0f]]], text(x.grads));
     y.backward();
 
-    import std.math : approxEqual;
+    import std.math : isClose;
 
-    assert(x.grads[0, 0, 0].approxEqual(2.0f));
-    assert(x.grads[0, 0, 1].approxEqual(2.0f));
-    assert(x.grads[0, 1, 0].approxEqual(2.0f));
-    assert(x.grads[0, 1, 1].approxEqual(2.0f));
-    assert(x.grads[1, 0, 0].approxEqual(2.0f));
-    assert(x.grads[1, 0, 1].approxEqual(2.0f));
-    assert(x.grads[1, 1, 0].approxEqual(2.0f));
-    assert(x.grads[1, 1, 1].approxEqual(2.0f));
+    assert(x.grads[0, 0, 0].isClose(2.0f));
+    assert(x.grads[0, 0, 1].isClose(2.0f));
+    assert(x.grads[0, 1, 0].isClose(2.0f));
+    assert(x.grads[0, 1, 1].isClose(2.0f));
+    assert(x.grads[1, 0, 0].isClose(2.0f));
+    assert(x.grads[1, 0, 1].isClose(2.0f));
+    assert(x.grads[1, 1, 0].isClose(2.0f));
+    assert(x.grads[1, 1, 1].isClose(2.0f));
 }
 
 struct Activation(alias f)
