@@ -482,13 +482,14 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
 
     invariant()
     {
+        import std.format : format;
         foreach (i; 0 .. Shape.length)
         {
             if (Shape[i] != 0)
             {
-                assert(Shape[i] == value.shape[i]);
+                assert(Shape[i] == value.shape[i], format!"size mismatched at shape[%d] (%s and %s)"(i, Shape, value.shape));
                 static if (hasGradient)
-                    assert(Shape[i] == grads.shape[i]);
+                    assert(Shape[i] == grads.shape[i], format!"size mismatched at shape[%d] (%s and %s)"(i, Shape, value.shape));
             }
             else
             {
