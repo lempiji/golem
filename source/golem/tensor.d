@@ -1077,3 +1077,72 @@ unittest
 
     static assert(canBackward!(typeof(x1)));
 }
+
+///
+Tensor!(T, TargetShape, useGrad) reshape(size_t[] TargetShape, T, size_t[] Shape, UseGradient useGrad)(Tensor!(T, Shape, useGrad) x)
+{
+    static if (Shape[0] == 0 && TargetShape[0] == 0)
+    {
+        const batchSize = x.shape[0];
+        const ptrdiff_t[TargetShape.length] runtimeTargetShape = [batchSize, expandShape!(TargetShape[1 .. $])];
+    }
+    else
+    {
+        static if (Shape[0] != 0)
+            enum batchSize = Shape[0];
+        else
+            enum batchSize = TargetShape[0];
+        enum ptrdiff_t[TargetShape.length] runtimeTargetShape = [batchSize, expandShape!(TargetShape[1 .. $])];
+    }
+
+    import mir.ndslice : reshape;
+
+	int err;
+	auto yValue = reshape(x.value, runtimeTargetShape, err);
+
+    static if (useGrad)
+    {
+        x.usedCount++;
+        return new Tensor!(T, TargetShape)(yValue, (grads) {
+            x.backward((ref xGrads) {
+                xGrads.flattened[] += grads.flattened[];
+            });
+        });
+    }
+    else
+    {
+        return new Tensor!(T, TargetShape, useGrad)(yValue);
+    }
+}
+
+/// ditto
+unittest
+{
+    auto x = tensor!([0, 2, 2])([1, 2, 3, 4]);
+    auto y = x.reshape!([0, 4]);
+
+    assert(y.shape == [1, 4]);
+    assert(y.value[0, 0] == 1);
+    assert(y.value[0, 1] == 2);
+    assert(y.value[0, 2] == 3);
+    assert(y.value[0, 3] == 4);
+
+    assert(x.grads == [[[0, 0], [0, 0]]]);
+    y.backward();
+    assert(x.grads == [[[1, 1], [1, 1]]]);
+}
+
+/// ditto
+unittest
+{
+    auto x = tensor!([0, 4], UseGradient.no)([1, 2, 3, 4]);
+    auto y = x.reshape!([1, 2, 2]);
+
+    assert(y.shape == [1, 2, 2]);
+    assert(y.value[0, 0, 0] == 1);
+    assert(y.value[0, 0, 1] == 2);
+    assert(y.value[0, 1, 0] == 3);
+    assert(y.value[0, 1, 1] == 4);
+
+    static assert(!canBackward!(typeof(y)));
+}
