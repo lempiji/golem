@@ -5,7 +5,7 @@ import golem.util;
 
 import mir.ndslice;
 
-import std.typecons : No;
+import std.typecons : No, tuple;
 
 version (all) // exp
 {
@@ -1798,5 +1798,119 @@ version (all) // boradcastOp
         auto z = broadcastOp!"*"(x, y);
 
         static assert(!canBackward!(typeof(z)));
+    }
+}
+
+version (all) // splitEvenOdd2D
+{
+    ///
+    auto splitEvenOdd2D(size_t axis = 2, T, size_t[] Shape, UseGradient useGrad)(
+            Tensor!(T, Shape, useGrad) images)
+            if (Shape.length == 4 && (axis == 2 || axis == 3))
+    {
+        static if (axis == 2)
+        {
+            static assert(Shape[2] % 2 == 0);
+            enum height = Shape[2] / 2;
+            enum width = Shape[3];
+
+            auto y1 = images.value[0 .. $, 0 .. $, 0 .. $ - 1, 0 .. $].strided!2(2).slice();
+            auto y2 = images.value[0 .. $, 0 .. $, 1 .. $, 0 .. $].strided!2(2).slice();
+        }
+        else
+        {
+            static assert(Shape[3] % 2 == 0);
+            enum height = Shape[2];
+            enum width = Shape[3] / 2;
+
+            auto y1 = images.value[0 .. $, 0 .. $, 0 .. $, 0 .. $ - 1].strided!3(2).slice();
+            auto y2 = images.value[0 .. $, 0 .. $, 0 .. $, 1 .. $].strided!3(2).slice();
+        }
+
+        enum size_t[] ReturnShape = [Shape[0], Shape[1], height, width];
+        static if (useGrad)
+        {
+            images.usedCount += 2;
+
+            static if (axis == 2)
+            {
+                return tuple(new Tensor!(T, ReturnShape)(y1, (grads) {
+                        images.backward((ref imagesGrads) {
+                            imagesGrads[0 .. $, 0 .. $, 0 .. $ - 1, 0 .. $].strided!2(2)[] += grads[];
+                        });
+                    }), new Tensor!(T, ReturnShape)(y2, (grads) {
+                        images.backward((ref imagesGrads) {
+                            imagesGrads[0 .. $, 0 .. $, 1 .. $, 0 .. $].strided!2(2)[] += grads[];
+                        });
+                    }));
+            }
+            else
+            {
+                return tuple(new Tensor!(T, ReturnShape)(y1, (grads) {
+                        images.backward((ref imagesGrads) {
+                            imagesGrads[0 .. $, 0 .. $, 0 .. $, 0 .. $ - 1].strided!3(2)[] += grads[];
+                        });
+                    }), new Tensor!(T, ReturnShape)(y2, (grads) {
+                        images.backward((ref imagesGrads) {
+                            imagesGrads[0 .. $, 0 .. $, 0 .. $, 1 .. $].strided!3(2)[] += grads[];
+                        });
+                    }));
+            }
+        }
+        else
+        {
+            // dfmt off
+            return tuple(
+                new Tensor!(T, ReturnShape, UseGradient.no)(y1),
+                new Tensor!(T, ReturnShape, UseGradient.no)(y2)
+                );
+            // dfmt on
+        }
+    }
+
+    /// ditto
+    unittest
+    {
+        auto x = tensor!([0, 1, 2, 2])([1.0, 2.0, 3.0, 4.0]);
+
+        auto sh = splitEvenOdd2D(x); // split by height
+        assert(sh[0].shape == [1, 1, 1, 2]);
+        assert(sh[0].value == [[[[1.0, 2.0]]]]);
+        assert(sh[1].shape == [1, 1, 1, 2]);
+        assert(sh[1].value == [[[[3.0, 4.0]]]]);
+
+        sh[0].backward();
+        sh[1].backward();
+
+        auto sw = splitEvenOdd2D!3(x); // split by width
+        assert(sw[0].shape == [1, 1, 2, 1]);
+        assert(sw[0].value == [[[[1.0], [3.0]]]]);
+        assert(sw[1].shape == [1, 1, 2, 1]);
+        assert(sw[1].value == [[[[2.0], [4.0]]]]);
+
+        sw[0].backward();
+        sw[1].backward();
+    }
+
+    /// ditto
+    unittest
+    {
+        auto x = tensor!([0, 2, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+
+        auto sh = splitEvenOdd2D!2(x); // split by height
+        assert(sh[0].shape == [1, 2, 1, 2]);
+        assert(sh[0].value == [[[[1.0, 2.0]], [[5.0, 6.0]]]]);
+        assert(sh[1].shape == [1, 2, 1, 2]);
+        assert(sh[1].value == [[[[3.0, 4.0]], [[7.0, 8.0]]]]);
+
+        static assert(!canBackward!(typeof(sh)));
+
+        auto sw = splitEvenOdd2D!3(x); // split by width
+        assert(sw[0].shape == [1, 2, 2, 1]);
+        assert(sw[0].value == [[[[1.0], [3.0]], [[5.0], [7.0]]]]);
+        assert(sw[1].shape == [1, 2, 2, 1]);
+        assert(sw[1].value == [[[[2.0], [4.0]], [[6.0], [8.0]]]]);
+
+        static assert(!canBackward!(typeof(sw)));
     }
 }
