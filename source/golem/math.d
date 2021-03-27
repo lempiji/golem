@@ -2064,3 +2064,139 @@ version (all) // mergeEvenOdd2D
         assert(m.value[0, 0, 1, 3] == 4.0);
     }
 }
+
+version (all) // concat2D
+{
+    auto concat2D(size_t axis = 1, T, U)(T x, U y)
+    if (isTensor!T && isTensor!U)
+    {
+        static assert(axis == 1, "not implement");
+
+        enum S1 = T.staticShape;
+        enum S2 = U.staticShape;
+        static assert(S1.length == 4);
+        static assert(S2.length == 4);
+        static assert(S1[2 .. 4] == S2[2 .. 4]);
+        assert(x.shape[0] == y.shape[0]);
+
+        static if (is(T : Tensor!(E, T.staticShape), E))
+        {
+            alias ElementType = E;
+        }
+        else static if (is(T : Tensor!(E, T.staticShape, UseGradient.no), E))
+        {
+            alias ElementType = E;
+        }
+        else
+        {
+            static assert(false);
+        }
+
+        enum size_t[4] ReturnShape = [S1[0], S1[1] + S2[1], S1[2], S1[3]];
+        
+        auto z = uninitSlice!ElementType(x.shape[0], S1[1] + S2[1], S1[2], S1[3]);
+        z[0 .. $, 0 .. S1[1], 0 .. $, 0 .. $] = x.value;
+        z[0 .. $, S1[1] .. $, 0 .. $, 0 .. $] = y.value;
+
+        static if (canBackward!T || canBackward!U)
+        {
+            static if (canBackward!T)
+                x.usedCount++;
+            static if (canBackward!U)
+                y.usedCount++;
+
+            return new Tensor!(E, ReturnShape)(z, (grads) {
+                static if (canBackward!T)
+                {
+                    x.backward((ref xGrads) {
+                        xGrads[] += grads[0 .. $, 0 .. S1[1], 0 .. $, 0 .. $];
+                    });
+                }
+                static if (canBackward!U)
+                {
+                    y.backward((ref yGrads) {
+                        yGrads[] += grads[0 .. $, S1[1] .. $, 0 .. $, 0 .. $];
+                    });
+                }
+            });
+        }
+        else
+        {
+            return new Tensor!(E, ReturnShape, UseGradient.no)(z);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 1, 2, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([0, 2, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        auto z = concat2D(x, y);
+
+        assert(z.shape == [1, 3, 2, 2]);
+        assert(z.value[0, 0, 0, 0] == 1.0);
+        assert(z.value[0, 0, 0, 1] == 2.0);
+        assert(z.value[0, 0, 1, 0] == 3.0);
+        assert(z.value[0, 0, 1, 1] == 4.0);
+        assert(z.value[0, 1, 0, 0] == 1.0);
+        assert(z.value[0, 1, 0, 1] == 2.0);
+        assert(z.value[0, 1, 1, 0] == 3.0);
+        assert(z.value[0, 1, 1, 1] == 4.0);
+        assert(z.value[0, 2, 0, 0] == 5.0);
+        assert(z.value[0, 2, 0, 1] == 6.0);
+        assert(z.value[0, 2, 1, 0] == 7.0);
+        assert(z.value[0, 2, 1, 1] == 8.0);
+
+        z.backward();
+    }
+    
+    unittest
+    {
+        auto x = tensor!([0, 1, 3, 1], UseGradient.no)([1.0, 2.0, 3.0]);
+        auto y = tensor!([0, 1, 3, 1])([1.0, 2.0, 3.0]);
+        auto z = concat2D(x, y);
+
+        assert(z.shape == [1, 2, 3, 1]);
+        assert(z.value[0, 0, 0, 0] == 1.0);
+        assert(z.value[0, 0, 1, 0] == 2.0);
+        assert(z.value[0, 0, 2, 0] == 3.0);
+        assert(z.value[0, 1, 0, 0] == 1.0);
+        assert(z.value[0, 1, 1, 0] == 2.0);
+        assert(z.value[0, 1, 2, 0] == 3.0);
+
+        z.backward();
+    }
+    
+    unittest
+    {
+        auto x = tensor!([0, 1, 3, 1])([1.0, 2.0, 3.0]);
+        auto y = tensor!([0, 1, 3, 1], UseGradient.no)([1.0, 2.0, 3.0]);
+        auto z = concat2D(x, y);
+
+        assert(z.shape == [1, 2, 3, 1]);
+        assert(z.value[0, 0, 0, 0] == 1.0);
+        assert(z.value[0, 0, 1, 0] == 2.0);
+        assert(z.value[0, 0, 2, 0] == 3.0);
+        assert(z.value[0, 1, 0, 0] == 1.0);
+        assert(z.value[0, 1, 1, 0] == 2.0);
+        assert(z.value[0, 1, 2, 0] == 3.0);
+
+        z.backward();
+    }
+    
+    unittest
+    {
+        auto x = tensor!([0, 1, 3, 1], UseGradient.no)([1.0, 2.0, 3.0]);
+        auto y = tensor!([0, 1, 3, 1], UseGradient.no)([1.0, 2.0, 3.0]);
+        auto z = concat2D(x, y);
+
+        assert(z.shape == [1, 2, 3, 1]);
+        assert(z.value[0, 0, 0, 0] == 1.0);
+        assert(z.value[0, 0, 1, 0] == 2.0);
+        assert(z.value[0, 0, 2, 0] == 3.0);
+        assert(z.value[0, 1, 0, 0] == 1.0);
+        assert(z.value[0, 1, 1, 0] == 2.0);
+        assert(z.value[0, 1, 2, 0] == 3.0);
+
+        static assert(!canBackward!(typeof(z)));
+    }
+}
