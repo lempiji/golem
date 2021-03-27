@@ -1914,3 +1914,153 @@ version (all) // splitEvenOdd2D
         static assert(!canBackward!(typeof(sw)));
     }
 }
+
+version (all) // mergeEvenOdd2D
+{
+    auto mergeEvenOdd2D(size_t axis = 2, T, size_t[] Shape, UseGradient useGrad1, UseGradient useGrad2)(
+            Tensor!(T, Shape, useGrad1) even, Tensor!(T, Shape, useGrad2) odd)
+            if (Shape.length == 4)
+    {
+        static if (axis == 2)
+        {
+            enum height = Shape[2] * 2;
+            enum width = Shape[3];
+        }
+        else
+        {
+            enum height = Shape[2];
+            enum width = Shape[3] * 2;
+        }
+        enum size_t[] ReturnShape = [Shape[0], Shape[1], height, width];
+
+        static if (Shape[0] == 0)
+            const batchSize = even.shape[0];
+        else
+            enum batchSize = Shape[0];
+
+        auto y = slice!T(batchSize, Shape[1], height, width);
+        static if (axis == 2)
+        {
+            y[0 .. $, 0 .. $, 0 .. $ - 1, 0 .. $].strided!2(2)[] = even.value[];
+            y[0 .. $, 0 .. $, 1 .. $, 0 .. $].strided!2(2)[] = odd.value[];
+        }
+        else
+        {
+            y[0 .. $, 0 .. $, 0 .. $, 0 .. $ - 1].strided!3(2)[] = even.value[];
+            y[0 .. $, 0 .. $, 0 .. $, 1 .. $].strided!3(2)[] = odd.value[];
+        }
+
+        static if (useGrad1 || useGrad2)
+        {
+            static if (useGrad1)
+                even.usedCount++;
+            static if (useGrad2)
+                odd.usedCount++;
+
+            return new Tensor!(T, ReturnShape)(y, (grads) {
+                static if (useGrad1)
+                {
+                    even.backward((ref evenGrads) {
+                        static if (axis == 2)
+                            evenGrads[] = grads[0 .. $, 0 .. $, 0 .. $ - 1, 0 .. $].strided!2(2);
+                        else
+                            evenGrads[] = grads[0 .. $, 0 .. $, 0 .. $, 0 .. $ - 1].strided!3(2);
+                    });
+                }
+                static if (useGrad2)
+                {
+                    odd.backward((ref oddGrads) {
+                        static if (axis == 2)
+                            oddGrads[] = grads[0 .. $, 0 .. $, 1 .. $, 0 .. $].strided!2(2);
+                        else
+                            oddGrads[] = grads[0 .. $, 0 .. $, 0 .. $, 1 .. $].strided!3(2);
+                    });
+                }
+            });
+        }
+        else
+        {
+            return new Tensor!(T, ReturnShape, UseGradient.no)(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 1, 2, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto s = splitEvenOdd2D(x);
+        auto m = mergeEvenOdd2D(s.expand);
+
+        assert(x.value == m.value);
+
+        m.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 1, 2, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto s = splitEvenOdd2D!3(x);
+        auto m = mergeEvenOdd2D!3(s.expand);
+
+        assert(x.value == m.value);
+
+        m.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 1, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto s = splitEvenOdd2D!2(x);
+        auto m = mergeEvenOdd2D!2(s.expand);
+
+        assert(x.value == m.value);
+
+        static assert(!canBackward!(typeof(m)));
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 1, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto s = splitEvenOdd2D!3(x);
+        auto m = mergeEvenOdd2D!3(s.expand);
+
+        assert(x.value == m.value);
+
+        static assert(!canBackward!(typeof(m)));
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 1, 2, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([0, 1, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto m = mergeEvenOdd2D(x, y);
+
+        assert(m.shape == [1, 1, 4, 2]);
+        assert(m.value[0, 0, 0, 0] == 1.0);
+        assert(m.value[0, 0, 0, 1] == 2.0);
+        assert(m.value[0, 0, 1, 0] == 1.0);
+        assert(m.value[0, 0, 1, 1] == 2.0);
+        assert(m.value[0, 0, 2, 0] == 3.0);
+        assert(m.value[0, 0, 2, 1] == 4.0);
+        assert(m.value[0, 0, 3, 0] == 3.0);
+        assert(m.value[0, 0, 3, 1] == 4.0);
+
+        m.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 1, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([0, 1, 2, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto m = mergeEvenOdd2D!3(x, y);
+
+        assert(m.shape == [1, 1, 2, 4]);
+        assert(m.value[0, 0, 0, 0] == 1.0);
+        assert(m.value[0, 0, 0, 1] == 1.0);
+        assert(m.value[0, 0, 0, 2] == 2.0);
+        assert(m.value[0, 0, 0, 3] == 2.0);
+        assert(m.value[0, 0, 1, 0] == 3.0);
+        assert(m.value[0, 0, 1, 1] == 3.0);
+        assert(m.value[0, 0, 1, 2] == 4.0);
+        assert(m.value[0, 0, 1, 3] == 4.0);
+    }
+}
