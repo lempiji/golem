@@ -2201,9 +2201,9 @@ version (all) // concat2D
     }
 }
 
-version (all) // transform1D
+version (all) // projection1D
 {
-    auto transform1D(size_t axis, T, size_t[] ShapeW, UseGradient useGradW, size_t[] ShapeX, UseGradient useGradX)(Tensor!(T, ShapeX, useGradX) x, Tensor!(T, ShapeW, useGradW) w)
+    auto projection1D(size_t axis, T, size_t[] ShapeW, UseGradient useGradW, size_t[] ShapeX, UseGradient useGradX)(Tensor!(T, ShapeX, useGradX) x, Tensor!(T, ShapeW, useGradW) w)
     if ((axis == 2 || axis == 3) && ShapeX.length == 4 && ShapeW.length == 2 && ShapeX[axis] == ShapeW[0])
     {
         enum H = axis == 2 ? ShapeW[1] : ShapeX[2];
@@ -2288,7 +2288,7 @@ version (all) // transform1D
         auto x = tensor!([1, 1, 2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
         auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
 
-        auto y = transform1D!2(x, w);
+        auto y = projection1D!2(x, w);
         assert(y.shape == [1, 1, 3, 2]);
         assert(y.value[0, 0, 0, 0] == 13);
         assert(y.value[0, 0, 0, 1] == 18);
@@ -2317,7 +2317,7 @@ version (all) // transform1D
         auto x = tensor!([1, 1, 2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
         auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
 
-        auto y = transform1D!2(x, w);
+        auto y = projection1D!2(x, w);
         assert(y.shape == [1, 1, 3, 3]);
         assert(y.value[0, 0, 0, 0] == 17);
         assert(y.value[0, 0, 0, 1] == 22);
@@ -2335,7 +2335,7 @@ version (all) // transform1D
         auto x = tensor!([1, 1, 2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
         auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
 
-        auto y = transform1D!3(x, w);
+        auto y = projection1D!3(x, w);
         assert(y.shape == [1, 1, 2, 3]);
         assert(y.value[0, 0, 0, 0] == 9);
         assert(y.value[0, 0, 0, 1] == 12);
@@ -2364,7 +2364,7 @@ version (all) // transform1D
         auto x = tensor!([1, 1, 3, 2])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
         auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
 
-        auto y = transform1D!3(x, w);
+        auto y = projection1D!3(x, w);
         assert(y.shape == [1, 1, 3, 3]);
         assert(y.value[0, 0, 0, 0] == 9);
         assert(y.value[0, 0, 0, 1] == 12);
