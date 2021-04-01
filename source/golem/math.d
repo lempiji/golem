@@ -2270,7 +2270,7 @@ version (all) // projection1D
                             }
                             else static if (axis == 3)
                             {
-                                gemm(T(1), w.value, t[1].transposed, T(1), t[0]);
+                                gemm(T(1), w.value, t[1].transposed, T(1), t[0].transposed);
                             }
                         }
                     });
@@ -2347,8 +2347,8 @@ version (all) // projection1D
         y.backward();
 
         assert(x.grads[0, 0, 0, 0] == 6);
-        assert(x.grads[0, 0, 0, 1] == 6);
-        assert(x.grads[0, 0, 1, 0] == 15);
+        assert(x.grads[0, 0, 0, 1] == 15);
+        assert(x.grads[0, 0, 1, 0] == 6);
         assert(x.grads[0, 0, 1, 1] == 15);
 
         assert(w.grads[0, 0] == 4);
