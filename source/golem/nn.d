@@ -304,3 +304,82 @@ unittest
 
     static assert(!hasParameters!(typeof(net)));
 }
+
+class LiftPool2D(T, size_t Height, size_t Width, UseGradient useGradient = UseGradient.yes)
+{
+    enum HalfH = Height / 2;
+    enum HalfW = Width / 2;
+
+    Tensor!(T, [HalfW, HalfW], useGradient) predictW;
+    Tensor!(T, [HalfW, HalfW], useGradient) updateW;
+    Tensor!(T, [HalfH, HalfH], useGradient) predictH;
+    Tensor!(T, [HalfH, HalfH], useGradient) updateH;
+
+    alias parameters = AliasSeq!(predictW, updateW, predictH, updateH);
+    this()
+    {
+        import mir.ndslice : diagonal;
+
+        // Haar wavelet
+        predictW = zeros!(T, [HalfW, HalfW], useGradient)();
+        predictW.value.diagonal[] = T(1);
+        updateW = zeros!(T, [HalfW, HalfW], useGradient)();
+        updateW.value.diagonal[] = T(0.5);
+
+        predictH = zeros!(T, [HalfH, HalfH], useGradient)();
+        predictH.value.diagonal[] = T(1);
+        updateH = zeros!(T, [HalfH, HalfH], useGradient)();
+        updateH.value.diagonal[] = T(0.5);
+    }
+
+    auto liftUp(U)(U x)
+    if (isTensor!U && U.staticShape.length == 4 && U.staticShape[2] == Height && U.staticShape[3] == Width)
+    {
+        import std.typecons : tuple;
+        import golem.math : splitEvenOdd2D, concat2D, projection1D;
+
+        auto xw = splitEvenOdd2D!3(x);
+        auto xw_predict = projection1D!3(xw[0], predictW);
+        auto xw_d = xw[1] - xw_predict;
+        auto xw_c = xw[0] + projection1D!3(xw_d, updateW);
+        auto hidden = concat2D(xw_c, xw_d);
+
+        auto xh = splitEvenOdd2D!2(hidden);
+        auto xh_predict = projection1D!2(xh[0], predictH);
+        auto xh_d = xh[1] - xh_predict;
+        auto xh_c = xh[0] + projection1D!2(xh_d, updateH);
+        auto output = concat2D(xh_c, xh_d);
+
+        return tuple(output, tuple(xw[1], xw_predict), tuple(xh[1], xh_predict));
+    }
+
+}
+
+unittest
+{
+    auto lift = new LiftPool2D!(double, 4, 4);
+    auto images = tensor!([1, 1, 4, 4])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0]);
+
+    auto y = lift.liftUp(images);
+
+    assert(y[0].shape == [1, 4, 2, 2]);
+
+    assert(y[0].value[0, 0, 0, 0] == 3.5);
+    assert(y[0].value[0, 0, 0, 1] == 5.5);
+    assert(y[0].value[0, 0, 1, 0] == 11.5);
+    assert(y[0].value[0, 0, 1, 1] == 13.5);
+    assert(y[0].value[0, 1, 0, 0] == 1);
+    assert(y[0].value[0, 1, 0, 1] == 1);
+    assert(y[0].value[0, 1, 1, 0] == 1);
+    assert(y[0].value[0, 1, 1, 1] == 1);
+    assert(y[0].value[0, 2, 0, 0] == 4);
+    assert(y[0].value[0, 2, 0, 1] == 4);
+    assert(y[0].value[0, 2, 1, 0] == 4);
+    assert(y[0].value[0, 2, 1, 1] == 4);
+    assert(y[0].value[0, 3, 0, 0] == 0);
+    assert(y[0].value[0, 3, 0, 1] == 0);
+    assert(y[0].value[0, 3, 1, 0] == 0);
+    assert(y[0].value[0, 3, 1, 1] == 0);
+
+    y[0].backward();
+}
