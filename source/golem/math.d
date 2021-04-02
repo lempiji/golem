@@ -2377,3 +2377,286 @@ version (all) // projection1D
         assert(y.value[0, 0, 2, 2] == 51);
     }
 }
+
+version (all) // conv2D
+{
+    size_t[] conv2DShape(size_t[] Shape, size_t channel_out, size_t[] kernel_size, size_t[] padding, size_t[] stride, size_t[] dilation)
+    {
+        import std.math : floor;
+
+        const H_in = Shape[2];
+        const W_in = Shape[3];
+
+        const H_out = cast(size_t) floor(real(H_in + 2 * padding[0] - dilation[0] * (kernel_size[0] - 1) - 1) / stride[0] + 1);
+        const W_out = cast(size_t) floor(real(W_in + 2 * padding[1] - dilation[1] * (kernel_size[1] - 1) - 1) / stride[1] + 1);
+
+        return [Shape[0], channel_out, H_out, W_out];
+    }
+
+    unittest
+    {
+        auto shape = conv2DShape([0, 1, 28, 28], 4, [3, 3], [0, 0], [1, 1], [1, 1]);
+        assert(shape == [0, 4, 26, 26]);
+    }
+
+    auto conv2D(
+        size_t[] padding = [0, 0],
+        size_t[] stride = [1, 1],
+        size_t[] dilation = [1, 1],
+        T,
+        size_t[] ShapeX, UseGradient useGradX,
+        size_t[] ShapeW, UseGradient useGradW,
+        size_t[] ShapeB, UseGradient useGradB
+    )(Tensor!(T, ShapeX, useGradX) x, Tensor!(T, ShapeW, useGradW) weights, Tensor!(T, ShapeB, useGradB) bias)
+    {
+        static assert(padding.length == 2);
+        static assert(stride.length == 2);
+        static assert(dilation.length == 2);
+        static assert(stride == [1, 1], "conv2d : stride is not implemented");
+        static assert(dilation == [1, 1], "conv2d : dilation is not implemented");
+
+        static assert(ShapeX.length == 4);
+        static assert(ShapeW.length == 4);
+        static assert(ShapeB.length == 1);
+        static assert(ShapeX[1] == ShapeW[1]);
+        static assert(ShapeW[0] == ShapeB[0]);
+
+        enum ReturnShape = conv2DShape(ShapeX, ShapeB[0], ShapeW[2 .. 4], padding, stride, dilation);
+
+        enum C = ShapeX[1];
+        enum TempH = ShapeX[2] + 2 * padding[0];
+        enum TempW = ShapeX[3] + 2 * padding[1];
+
+        auto temp = slice!T([C, TempH, TempW], 0);
+        auto y = uninitSlice!T(x.shape[0], ReturnShape[1], ReturnShape[2], ReturnShape[3]);
+
+        foreach (i; 0 .. x.shape[0])
+        {
+            temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = x.value[i, 0 .. $, 0 .. $, 0 .. $];
+            
+            auto wins = temp.windows(C, ShapeW[2], ShapeW[3]);
+            foreach (c; 0 .. ShapeB[0])
+            {
+                auto ws = weights.value[c];
+                const b = bias.value[c];
+
+                import mir.math.sum : sum;
+
+                y[i, c, 0 .. $, 0 .. $] = wins.map!(w => sum(w.flattened[] * ws.flattened[]) + b)[0];
+            }
+        }
+        
+        static if (useGradX || useGradW || useGradB)
+        {
+            static if (useGradX)
+                x.usedCount++;
+            static if (useGradW)
+                weights.usedCount++;
+            static if (useGradB)
+                bias.usedCount++;
+
+            return new Tensor!(T, ReturnShape)(y, (grads) {
+                static if (useGradX)
+                {
+                    x.backward((ref xGrads) {
+                        foreach (i; 0 .. grads.shape[0])
+                        {
+                            temp.flattened[] = 0;
+                            //temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = xGrads[i];
+                            auto wins = temp.windows(ShapeX[1], ShapeW[2], ShapeW[3]);
+                            foreach (c; 0 .. grads.shape[1])
+                            {
+                                foreach (h; 0 .. grads.shape[2])
+                                {
+                                    foreach (w; 0 .. grads.shape[3])
+                                    {
+                                        wins[0, h, w][] += grads[i, c, h, w] * weights.value[c];
+                                    }
+                                }
+                            }
+                            xGrads[i][] += temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]];
+                        }
+                    });
+                }
+                static if (useGradW)
+                {
+                    weights.backward((ref wGrads) {
+                        foreach (i; 0 .. grads.shape[0])
+                        {
+                            temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = x.value[i];
+                            auto wins = temp.windows(C, grads.shape[2], grads.shape[3]);
+                            foreach (h; 0 .. wGrads.shape[2])
+                            {
+                                foreach (w; 0 .. wGrads.shape[3])
+                                {
+                                    foreach (c; 0 .. wGrads.shape[0])
+                                    {
+                                        wGrads[c][] += wins[0, h, w][] * grads[i, c, h, w];
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+                static if (useGradB)
+                {
+                    bias.backward((ref bGrads) {
+                        import mir.math.sum : sum;
+
+                        bGrads[] += grads.transposed!1.ipack!1.map!sum;
+                    });
+                }
+            });
+        }
+        else
+        {
+            return new Tensor!(T, ReturnShape, UseGradient.no)(y);
+        }
+    }
+
+    unittest
+    {
+        // dfmt off
+        auto images = tensor!([0, 1, 5, 5])([
+             1.0,  2.0,  3.0,  4.0,  5.0,
+             6.0,  7.0,  8.0,  9.0, 10.0,
+            11.0, 12.0, 13.0, 14.0, 15.0,
+            16.0, 17.0, 18.0, 19.0, 20.0,
+            21.0, 22.0, 23.0, 24.0, 25.0]);
+        // dfmt on
+
+        // dfmt off
+        auto weights = tensor!([2, 1, 3, 3])([
+             1.0,  2.0,  3.0,  4.0,  5.0,  6.0,  7.0,  8.0,  9.0,
+            10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0
+            ]);
+        // dfmt on
+
+        auto bias = tensor!([2])([1.0, 2.0]);
+
+        auto y = conv2D(images, weights, bias);
+
+        assert(y.shape == [1, 2, 3, 3]);
+        assert(y.value[0, 0, 0, 0] == 412);
+        assert(y.value[0, 0, 0, 1] == 457);
+        assert(y.value[0, 0, 0, 2] == 502);
+        assert(y.value[0, 0, 1, 0] == 637);
+        assert(y.value[0, 0, 1, 1] == 682);
+        assert(y.value[0, 0, 1, 2] == 727);
+        assert(y.value[0, 0, 2, 0] == 862);
+        assert(y.value[0, 0, 2, 1] == 907);
+        assert(y.value[0, 0, 2, 2] == 952);
+
+        assert(y.value[0, 1, 0, 0] == 980);
+        assert(y.value[0, 1, 0, 1] == 1106);
+        assert(y.value[0, 1, 0, 2] == 1232);
+        assert(y.value[0, 1, 1, 0] == 1610);
+        assert(y.value[0, 1, 1, 1] == 1736);
+        assert(y.value[0, 1, 1, 2] == 1862);
+        assert(y.value[0, 1, 2, 0] == 2240);
+        assert(y.value[0, 1, 2, 1] == 2366);
+        assert(y.value[0, 1, 2, 2] == 2492);
+
+        y.backward();
+
+        import std.stdio : writeln;
+
+        writeln(images.grads);
+
+        assert(images.grads[0, 0, 0, 0] == 11);
+        assert(images.grads[0, 0, 0, 1] == 24);
+        assert(images.grads[0, 0, 0, 2] == 39);
+        assert(images.grads[0, 0, 0, 3] == 28);
+        assert(images.grads[0, 0, 0, 4] == 15);
+        assert(images.grads[0, 0, 1, 0] == 28);
+        assert(images.grads[0, 0, 1, 1] == 60);
+        assert(images.grads[0, 0, 1, 2] == 96);
+        assert(images.grads[0, 0, 1, 3] == 68);
+        assert(images.grads[0, 0, 1, 4] == 36);
+        assert(images.grads[0, 0, 2, 0] == 51);
+        assert(images.grads[0, 0, 2, 1] == 108);
+        assert(images.grads[0, 0, 2, 2] == 171);
+        assert(images.grads[0, 0, 2, 3] == 120);
+        assert(images.grads[0, 0, 2, 4] == 63);
+        assert(images.grads[0, 0, 3, 0] == 40);
+        assert(images.grads[0, 0, 3, 1] == 84);
+        assert(images.grads[0, 0, 3, 2] == 132);
+        assert(images.grads[0, 0, 3, 3] == 92);
+        assert(images.grads[0, 0, 3, 4] == 48);
+        assert(images.grads[0, 0, 4, 0] == 23);
+        assert(images.grads[0, 0, 4, 1] == 48);
+        assert(images.grads[0, 0, 4, 2] == 75);
+        assert(images.grads[0, 0, 4, 3] == 52);
+        assert(images.grads[0, 0, 4, 4] == 27);
+
+        assert(weights.grads[0, 0, 0, 0] == 63);
+        assert(weights.grads[0, 0, 0, 1] == 72);
+        assert(weights.grads[0, 0, 0, 2] == 81);
+        assert(weights.grads[0, 0, 1, 0] == 108);
+        assert(weights.grads[0, 0, 1, 1] == 117);
+        assert(weights.grads[0, 0, 1, 2] == 126);
+        assert(weights.grads[0, 0, 2, 0] == 153);
+        assert(weights.grads[0, 0, 2, 1] == 162);
+        assert(weights.grads[0, 0, 2, 2] == 171);
+        assert(weights.grads[1, 0, 0, 0] == 63);
+        assert(weights.grads[1, 0, 0, 1] == 72);
+        assert(weights.grads[1, 0, 0, 2] == 81);
+        assert(weights.grads[1, 0, 1, 0] == 108);
+        assert(weights.grads[1, 0, 1, 1] == 117);
+        assert(weights.grads[1, 0, 1, 2] == 126);
+        assert(weights.grads[1, 0, 2, 0] == 153);
+        assert(weights.grads[1, 0, 2, 1] == 162);
+        assert(weights.grads[1, 0, 2, 2] == 171);
+
+        assert(bias.grads[0] == 9);
+        assert(bias.grads[1] == 9);
+    }
+    
+    unittest
+    {
+        // dfmt off
+        auto x = tensor!([2, 1, 3, 3])([
+            -1.0,  0.0,  1.0,
+            0.0,  1.0,  0.0,
+            1.0,  0.0, -1.0,
+            1.0, -1.0, -0.5,
+            -1.0,  1.0, -1.0,
+            -0.5, -1.0,  1.0,
+        ]);
+
+        auto w = tensor!([1, 1, 3, 3])([
+            -0.5,  -0.5,  0.75,
+            -0.5,   1.0, -0.5,
+            0.75, -0.5, -0.5,
+        ]);
+
+        auto b = tensor!([1])([0.0]);
+        // dfmt on
+
+        auto y = conv2D!([1, 1])(x, w, b);
+
+        assert(y.shape == [2, 1, 3, 3]);
+
+        assert(y.value[0, 0, 0, 0] == -1.5);
+        assert(y.value[0, 0, 0, 1] == -0.5);
+        assert(y.value[0, 0, 0, 2] == 1.75);
+        assert(y.value[0, 0, 1, 0] == -0.5);
+        assert(y.value[0, 0, 1, 1] == 3.5);
+        assert(y.value[0, 0, 1, 2] == -0.5);
+        assert(y.value[0, 0, 2, 0] == 1.75);
+        assert(y.value[0, 0, 2, 1] == -0.5);
+        assert(y.value[0, 0, 2, 2] == -1.5);
+        
+        assert(y.value[1, 0, 0, 0] == 1.5);
+        assert(y.value[1, 0, 0, 1] == -2);
+        assert(y.value[1, 0, 0, 2] == 1.25);
+        assert(y.value[1, 0, 1, 0] == -2);
+        assert(y.value[1, 0, 1, 1] == 1.25);
+        assert(y.value[1, 0, 1, 2] == -2);
+        assert(y.value[1, 0, 2, 0] == 1.25);
+        assert(y.value[1, 0, 2, 1] == -2);
+        assert(y.value[1, 0, 2, 2] == 1.5);
+
+        y.backward();
+    }
+}
