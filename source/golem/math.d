@@ -2484,10 +2484,10 @@ version (all) // conv2D
                         foreach (i; 0 .. grads.shape[0])
                         {
                             temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = x.value[i];
-                            auto wins = temp.windows(C, grads.shape[2], grads.shape[3]);
-                            foreach (h; 0 .. wGrads.shape[2])
+                            auto wins = temp.windows(C, wGrads.shape[2], wGrads.shape[3]);
+                            foreach (h; 0 .. grads.shape[2])
                             {
-                                foreach (w; 0 .. wGrads.shape[3])
+                                foreach (w; 0 .. grads.shape[3])
                                 {
                                     foreach (c; 0 .. wGrads.shape[0])
                                     {
