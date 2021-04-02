@@ -383,3 +383,63 @@ unittest
 
     y[0].backward();
 }
+
+
+class Conv2D(T, size_t C_in, size_t C_out, size_t[] kernelSize, UseGradient useGrad = UseGradient.yes)
+{
+    mixin Conv2DImpl!(T, C_in, C_out, kernelSize, [0, 0], useGrad);
+}
+
+class Conv2D(T, size_t C_in, size_t C_out, size_t[] kernelSize, size_t[] padding, UseGradient useGrad = UseGradient.yes)
+{
+    mixin Conv2DImpl!(T, C_in, C_out, kernelSize, padding, useGrad);
+}
+
+unittest
+{
+    import golem.random : uniform;
+
+    auto images = uniform!(float, [1, 1, 28, 28]);
+    auto conv1 = new Conv2D!(float, 1, 2, [3, 3]);
+    auto y = conv1(images);
+    assert(y.shape == [1, 2, 26, 26]);
+    y.backward();
+}
+
+unittest
+{
+    import golem.random : uniform;
+
+    auto images = uniform!(float, [1, 1, 28, 28]);
+    auto conv1 = new Conv2D!(float, 1, 2, [3, 3], [1, 1]);
+    auto y = conv1(images);
+    assert(y.shape == [1, 2, 28, 28]);
+    y.backward();
+}
+
+private mixin template Conv2DImpl(T, size_t C_in, size_t C_out, size_t[] kernelSize, size_t[] padding, UseGradient useGrad)
+{
+    enum size_t[] WeightShape = [C_out, C_in, kernelSize[0], kernelSize[1]];
+    enum size_t[] BiasShape = [C_out];
+
+    Tensor!(T, WeightShape, useGrad) weights;
+    Tensor!(T, BiasShape, useGrad) bias;
+
+    alias parameters = AliasSeq!(weights, bias);
+    this()
+    {
+        import std.math : sqrt;
+        import golem.random : uniform;
+
+        weights = uniform!(T, WeightShape, useGrad)();
+        bias = uniform!(T, BiasShape, useGrad)();
+    }
+
+    auto opCall(U)(U x)
+    if (isTensor!U && U.staticShape.length == 4 && U.staticShape[1] == C_in)
+    {
+        import golem.math : conv2D;
+
+        return conv2D!(padding)(x, weights, bias);
+    }
+}
