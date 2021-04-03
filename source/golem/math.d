@@ -2424,26 +2424,48 @@ version (all) // conv2D
         enum ReturnShape = conv2DShape(ShapeX, ShapeB[0], ShapeW[2 .. 4], padding, stride, dilation);
 
         enum C = ShapeX[1];
+        enum C_out = ReturnShape[1];
         enum TempH = ShapeX[2] + 2 * padding[0];
         enum TempW = ShapeX[3] + 2 * padding[1];
-
-        auto temp = slice!T([C, TempH, TempW], 0);
+        enum usePadding = padding[0] != 0 || padding[1] != 0;
+        static if (usePadding)
+        {
+            auto temp = slice!T([C, TempH, TempW], 0);
+        }
         auto y = uninitSlice!T(x.shape[0], ReturnShape[1], ReturnShape[2], ReturnShape[3]);
+
+        // prepare im2col
+        auto v = uninitSlice!T(ReturnShape[2] * ReturnShape[3], C * ShapeW[2] * ShapeW[3] + 1);
+        v[0 .. $, $ - 1 .. $] = 1;
+        auto w = uninitSlice!T(C_out, C * ShapeW[2] * ShapeW[3] + 1);
+        foreach (i; 0 .. C_out)
+        {
+            w[i].flattened[0 .. $ - 1] = weights.value[i].flattened;
+            w[i].back = bias.value[i];
+        }
 
         foreach (i; 0 .. x.shape[0])
         {
-            temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = x.value[i, 0 .. $, 0 .. $, 0 .. $];
-            
-            auto wins = temp.windows(C, ShapeW[2], ShapeW[3]);
-            foreach (c; 0 .. ShapeB[0])
+            static if (usePadding)
             {
-                auto ws = weights.value[c];
-                const b = bias.value[c];
-
-                import mir.math.sum : sum;
-
-                y[i, c, 0 .. $, 0 .. $] = wins.map!(w => sum(w.flattened[] * ws.flattened[]) + b)[0];
+                temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = x.value[i];
+                auto wins = temp.windows(C, ShapeW[2], ShapeW[3]);
             }
+            else
+            {
+                auto wins = x.value[i].windows(C, ShapeW[2], ShapeW[3]);
+            }
+            foreach (t; zip(v.ipack!1, wins.flattened))
+            {
+                t[0].flattened[0 .. $ - 1] = t[1].flattened;
+            }
+
+            import mir.blas : gemm;
+
+            int err;
+            auto ty = y[i].reshape([C_out, ReturnShape[2] * ReturnShape[3]], err);
+            assert(err == 0);
+            gemm(T(1), v, w.transposed, T(0), ty.transposed);
         }
         
         static if (useGradX || useGradW || useGradB)
@@ -2461,37 +2483,61 @@ version (all) // conv2D
                     x.backward((ref xGrads) {
                         foreach (i; 0 .. grads.shape[0])
                         {
-                            temp.flattened[] = 0;
-                            //temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = xGrads[i];
-                            auto wins = temp.windows(ShapeX[1], ShapeW[2], ShapeW[3]);
-                            foreach (c; 0 .. grads.shape[1])
+                            static if (usePadding)
                             {
-                                foreach (h; 0 .. grads.shape[2])
+                                temp.flattened[] = 0;
+                                auto wins = temp.windows(ShapeX[1], ShapeW[2], ShapeW[3]);
+                            }
+                            else
+                            {
+                                auto wins = xGrads[i].windows(ShapeX[1], ShapeW[2], ShapeW[3]);
+                            }
+                            foreach (h; 0 .. ReturnShape[2])
+                            {
+                                foreach (w; 0 .. ReturnShape[3])
                                 {
-                                    foreach (w; 0 .. grads.shape[3])
+                                    auto tw = wins[0, h, w];
+                                    auto tg = grads.transposed!(0, 2, 3, 1)[i, h, w];
+                                    foreach (c; 0 .. ReturnShape[1])
                                     {
-                                        wins[0, h, w][] += grads[i, c, h, w] * weights.value[c];
+                                        tw[] += weights.value[c] * tg[c];
                                     }
                                 }
                             }
-                            xGrads[i][] += temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]];
+                            static if (usePadding)
+                            {
+                                xGrads[i][] += temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]];
+                            }
                         }
                     });
                 }
                 static if (useGradW)
                 {
                     weights.backward((ref wGrads) {
+                        static if (usePadding)
+                        {
+                            temp.flattened[] = 0;
+                        }
                         foreach (i; 0 .. grads.shape[0])
                         {
-                            temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = x.value[i];
-                            auto wins = temp.windows(C, wGrads.shape[2], wGrads.shape[3]);
-                            foreach (h; 0 .. grads.shape[2])
+                            static if (usePadding)
                             {
-                                foreach (w; 0 .. grads.shape[3])
+                                temp[0 .. $, padding[0] .. $ - padding[0], padding[1] .. $ - padding[1]] = x.value[i];
+                                auto wins = temp.windows(C, ShapeW[2], ShapeW[3]);
+                            }
+                            else
+                            {
+                                auto wins = x.value[i].windows(C, ShapeW[2], ShapeW[3]);
+                            }
+                            foreach (h; 0 .. ReturnShape[2])
+                            {
+                                foreach (w; 0 .. ReturnShape[3])
                                 {
-                                    foreach (c; 0 .. wGrads.shape[0])
+                                    auto tw = wins[0, h, w];
+                                    auto tg = grads.transposed!(0, 2, 3)[i, h, w];
+                                    foreach (c; 0 .. ShapeW[0])
                                     {
-                                        wGrads[c][] += wins[0, h, w][] * grads[i, c, h, w];
+                                        wGrads[c][] += tg[c] * tw;
                                     }
                                 }
                             }
@@ -2558,10 +2604,6 @@ version (all) // conv2D
         assert(y.value[0, 1, 2, 2] == 2492);
 
         y.backward();
-
-        import std.stdio : writeln;
-
-        writeln(images.grads);
 
         assert(images.grads[0, 0, 0, 0] == 11);
         assert(images.grads[0, 0, 0, 1] == 24);
