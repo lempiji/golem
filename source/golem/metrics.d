@@ -77,7 +77,7 @@ unittest
     assert(accuracy(xt, y4) == 1.0f);
 }
 
-Tensor!(size_t, [Shape[1], Shape[1]]) confustionMatrix(T, size_t[] Shape, UseGradient useGrad1, UseGradient useGrad2)(Tensor!(T, Shape, useGrad1) x, Tensor!(T, Shape, useGrad2) y)
+Tensor!(size_t, [Shape[1], Shape[1]], UseGradient.no) confustionMatrix(T, size_t[] Shape, UseGradient useGrad1, UseGradient useGrad2)(Tensor!(T, Shape, useGrad1) x, Tensor!(T, Shape, useGrad2) y)
 if (Shape.length == 2 && Shape[1] > 1)
 {
     assert(x.shape[0] == y.shape[0]);
@@ -92,7 +92,7 @@ if (Shape.length == 2 && Shape[1] > 1)
         const yindex = maxIndex(y.value[i]);
         result[yindex, xindex]++;
     }
-    return new Tensor!(size_t, [Shape[1], Shape[1]])(result);
+    return new Tensor!(size_t, [Shape[1], Shape[1]], UseGradient.no)(result);
 }
 
 unittest
