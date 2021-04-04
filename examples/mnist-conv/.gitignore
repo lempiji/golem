@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/mnist
+mnist.so
+mnist.dylib
+mnist.dll
+mnist.a
+mnist.lib
+mnist-test-*
+*.exe
+*.o
+*.obj
+*.lst
