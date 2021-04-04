@@ -3,5 +3,12 @@ description "A minimal D application."
 authors "lempiji"
 license "MIT"
 dependency "golem" path="../.."
-postGenerateCommands "dub fetch data-mnist"
-postGenerateCommands "dub run data-mnist"
+
+configuration "application" {
+    postGenerateCommands "dub fetch data-mnist"
+    postGenerateCommands "dub run data-mnist"
+}
+
+configuration "build-only" {
+    targetType "executable"
+}

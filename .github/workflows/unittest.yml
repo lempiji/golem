@@ -34,9 +34,9 @@ jobs:
         cd ./xor
         dub build --compiler=$DC
         cd ../mnist
-        dub build --compiler=$DC
+        dub build --compiler=$DC -c build-only
         cd ../mnist-conv
-        dub build --compiler=$DC
+        dub build --compiler=$DC -c build-only
         cd ../vae
         dub build --compiler=$DC
         cd ../likehood
