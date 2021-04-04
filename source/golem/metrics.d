@@ -77,7 +77,7 @@ unittest
     assert(accuracy(xt, y4) == 1.0f);
 }
 
-Tensor!(size_t, [Shape[1], Shape[1]], UseGradient.no) confustionMatrix(T, size_t[] Shape, UseGradient useGrad1, UseGradient useGrad2)(Tensor!(T, Shape, useGrad1) x, Tensor!(T, Shape, useGrad2) y)
+Tensor!(size_t, [Shape[1], Shape[1]], UseGradient.no) confusionMatrix(T, size_t[] Shape, UseGradient useGrad1, UseGradient useGrad2)(Tensor!(T, Shape, useGrad1) x, Tensor!(T, Shape, useGrad2) y)
 if (Shape.length == 2 && Shape[1] > 1)
 {
     assert(x.shape[0] == y.shape[0]);
@@ -135,7 +135,7 @@ unittest
         [0.0f, 1.0f, 0.0f, 0.0f],
     ]);
 
-    auto m = confustionMatrix(x, y);
+    auto m = confusionMatrix(x, y);
     static import numir;
 
     assert(m.value == numir.ones!size_t(4, 4));

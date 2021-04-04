@@ -69,7 +69,7 @@ void main()
 	
 	auto trainBatch = batchTensor(trainDataset);
 	auto trainOutput = model.forward(trainBatch[0]);
-	auto mat = confustionMatrix(trainOutput, trainBatch[1]);
+	auto mat = confusionMatrix(trainOutput, trainBatch[1]);
 
 	writeln();
 	writeln("-- confusion matrix --");

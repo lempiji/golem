@@ -103,7 +103,7 @@ void main(string[] args)
 		{
 			auto trainBatch = batchTensor(sample);
 			auto trainOutput = model.forward(trainBatch[0], false);
-			auto mat = confustionMatrix(trainOutput[0], trainBatch[1]);
+			auto mat = confusionMatrix(trainOutput[0], trainBatch[1]);
 			conf.value[] += mat.value;
 		}
 

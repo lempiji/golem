@@ -50,7 +50,7 @@ void main()
 	// print confusion matrix
 	auto trainBatch = batchTensor(dataset);
 	auto trainOutput = model.forward(trainBatch[0], false);
-	auto mat = confustionMatrix(trainOutput, trainBatch[1]);
+	auto mat = confusionMatrix(trainOutput, trainBatch[1]);
 
 	writeln("-- confusion matrix --");
 	auto names = ["Setosa    ", "Versicolor", "Virginica "];
