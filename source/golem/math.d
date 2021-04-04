@@ -2435,6 +2435,9 @@ version (all) // conv2D
         auto y = uninitSlice!T(x.shape[0], ReturnShape[1], ReturnShape[2], ReturnShape[3]);
 
         // prepare im2col
+        int err;
+        auto ty = y.reshape([x.shape[0], ReturnShape[1], ReturnShape[2] * ReturnShape[3]], err);
+        assert(err);
         auto v = uninitSlice!T(ReturnShape[2] * ReturnShape[3], C * ShapeW[2] * ShapeW[3] + 1);
         v[0 .. $, $ - 1 .. $] = 1;
         auto w = uninitSlice!T(C_out, C * ShapeW[2] * ShapeW[3] + 1);
@@ -2462,10 +2465,7 @@ version (all) // conv2D
 
             import mir.blas : gemm;
 
-            int err;
-            auto ty = y[i].reshape([C_out, ReturnShape[2] * ReturnShape[3]], err);
-            assert(err == 0);
-            gemm(T(1), v, w.transposed, T(0), ty.transposed);
+            gemm(T(1), v, w.transposed, T(0), ty[i].transposed);
         }
         
         static if (useGradX || useGradW || useGradB)
