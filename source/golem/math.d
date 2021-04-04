@@ -2437,7 +2437,7 @@ version (all) // conv2D
         // prepare im2col
         int err;
         auto ty = y.reshape([x.shape[0], ReturnShape[1], ReturnShape[2] * ReturnShape[3]], err);
-        assert(err);
+        assert(err == 0);
         auto v = uninitSlice!T(ReturnShape[2] * ReturnShape[3], C * ShapeW[2] * ShapeW[3] + 1);
         v[0 .. $, $ - 1 .. $] = 1;
         auto w = uninitSlice!T(C_out, C * ShapeW[2] * ShapeW[3] + 1);
