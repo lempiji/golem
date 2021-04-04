@@ -35,3 +35,9 @@ jobs:
         dub build --compiler=$DC
         cd ../mnist
         dub build --compiler=$DC
+        cd ../mnist-conv
+        dub build --compiler=$DC
+        cd ../vae
+        dub build --compiler=$DC
+        cd ../likehood
+        dub build --compiler=$DC
