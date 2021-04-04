@@ -38,6 +38,6 @@ jobs:
         cd ../mnist-conv
         dub build --compiler=$DC -c build-only
         cd ../vae
-        dub build --compiler=$DC
+        dub build --compiler=$DC -c build-only
         cd ../likehood
         dub build --compiler=$DC

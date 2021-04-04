@@ -6,5 +6,11 @@ license "MIT"
 dependency "golem" path="../.."
 dependency "imageformats" version="~>7.0.2"
 
-postGenerateCommands "dub fetch data-mnist"
-postGenerateCommands "dub run data-mnist"
+configuration "application" {
+    postGenerateCommands "dub fetch data-mnist"
+    postGenerateCommands "dub run data-mnist"
+}
+
+configuration "build-only" {
+    targetType "executable"
+}
