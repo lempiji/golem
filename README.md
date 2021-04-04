@@ -44,6 +44,28 @@ __dub.sdl__
 dependency "golem" version="~>0.6.0"
 ```
 
+### Requirements
+
+Link with BLAS Library
+
+See the `mir-lapack` Wiki
+
+Link: [https://github.com/libmir/mir-lapack/wiki/Link-with-CBLAS-&-LAPACK](https://github.com/libmir/mir-lapack/wiki/Link-with-CBLAS-&-LAPACK)
+
+__For Windows__
+
+Use Intel MKL by default
+
+Download : [https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html](https://software.intel.com/content/www/us/en/develop/tools/oneapi/components/onemkl.html)
+
+__For Ubuntu__
+
+Use OpenBLAS by default
+
+```console
+$ sudo apt install libopenblas-dev
+```
+
 ## Examples
 
 ```d
