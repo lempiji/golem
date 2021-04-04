@@ -33,7 +33,7 @@ __dub.json__
 ```json
 {
     "dependencies": {
-        "golem": "~>0.5.0"
+        "golem": "~>0.6.0"
     }
 }
 ```
@@ -41,7 +41,7 @@ __dub.json__
 __dub.sdl__
 
 ```json
-dependency "golem" version="~>0.5.0"
+dependency "golem" version="~>0.6.0"
 ```
 
 ## Examples
