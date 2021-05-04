@@ -86,8 +86,10 @@ auto z = x + y;
 assert(z.value[0, 0] == 0.0);
 ```
 
-```d
+```d name=no_grad
+import golem;
 import golem.random : randn;
+import std.typecons : No;
 
 // no grads tensor
 Tensor!(float, [3, 3], UseGradient.no) x = randn!(float, [3, 3], No.gradient);
@@ -96,13 +98,15 @@ Tensor!(float, [3, 3], UseGradient.no) x = randn!(float, [3, 3], No.gradient);
 
 ### Tensor Shape
 
-```d
+```d name=shape_1
+import golem;
+
 // 3 x 2
-auto x = tensor!([3, 2])(
+auto x = tensor!([3, 2])([
     [1.0, 2.0],
     [3.0, 4.0],
     [5.0, 6.0],
-);
+]);
 // N x 2
 auto y = tensor!([0, 2])([
     [1.0, 2.0],
@@ -121,12 +125,14 @@ assert(y.runtimeShape == [2, 2]);
 const batchSize = x.shape[0];
 ```
 
-```d
-auto x = tensor!([3, 2])(
+```d name=shape_2
+import golem;
+
+auto x = tensor!([3, 2])([
         [1.0, 2.0],
         [3.0, 4.0],
         [5.0, 6.0],
-    );
+    ]);
 auto y = tensor!([2, 2])([
         [1.0, 2.0],
         [3.0, 4.0],
@@ -142,10 +148,15 @@ static assert(!__traits(compiles, {
     }));
 
 // runtime error
+import core.exception : AssertError;
+import std.exception : assertThrown;
+
 assertThrown!AssertError(x + z);
 ```
 
-```d
+```d name=shape_3
+import golem;
+
 // more dimentions
 // like PyTorch (batch, channel, width, height)
 Tensor!(float, [0, 3, 224, 224]) images;
@@ -156,9 +167,12 @@ Tensor!(float, [0, 28, 28], UseGradient.no) mnistImages;
 
 ### Broadcast Operation
 
-```d
-Tensor!(float, [0, 28, 28]) images;
-Tensor!(float, [28, 28]) offset;
+```d name=broadcast
+import golem;
+import golem.random;
+
+Tensor!(float, [0, 28, 28]) images = randn!(float, [0, 28, 28])(1);
+Tensor!(float, [28, 28]) offset = randn!(float, [28, 28]);
 
 // shape rule for broadcast
 assert(images.shape.length > offset.shape.length);
@@ -170,12 +184,12 @@ auto result2 = broadcastOp!"-"(images, offset);
 auto result3 = broadcastOp!"*"(images, offset);
 
 // implement broadcast!"/"
-auto result4 = broadcastOp!"/"(images, onesLike(offset) / offset);
+auto result4 = broadcastOp!"*"(images, onesLike(offset) / offset);
 ```
 
 ### Linear
 
-```d
+```d name=linear
 import golem;
 
 // prepare datasets with dynamic batch sizes
@@ -209,13 +223,15 @@ foreach (epoch; 0 .. 10_000)
 }
 
 // result
+import std.stdio;
+
 auto y = linear(data);
 writeln(y.value);
 ```
 
 ### Optimizer
 
-```d
+```d name=optimizer
 import golem.nn : Linear;
 import golem.optimizer;
 
@@ -235,14 +251,18 @@ sgd.trainStep();
 adam.trainStep();
 ```
 
-```d
+```d name=optimizer_parameters
 // configure Parameters
+import golem;
+
+auto fc1 = new Linear!(float, 2, 2);
+auto fc2 = new Linear!(float, 2, 1);
 
 // SGD
 auto sgd = createOptimizer!SGD(fc1, fc2);
 sgd.config.learningRate = 0.1;  // default 0.01
 sgd.config.momentumRate = 0.95; // default 0.9
-adam.config.weightDecay = 1e-3; // default 0
+sgd.config.weightDecay = 1e-3; // default 0
 
 // Adam
 auto adam = createOptimizer!Adam(fc1, fc2);
@@ -269,7 +289,10 @@ __Perceptron__
 - Dim : `Input -> Hidden -> Output`
 - Activation : `sigmoid`
 
-```d
+```d name=custommodel
+import golem;
+import std.meta : AliasSeq;
+
 class Perceptron(size_t Input, size_t Hidden, size_t Output)
 {
     // layers
@@ -299,12 +322,12 @@ __AutoEncoder__
 
 - Dim : `10 -> 8 -> |3| -> 8 -> 10`
 
-```d
+```d name=custommodel
 class AutoEncoder
 {
     // Nested custom model
-    Perceptron!(float, 10, 8, 3) encoder;
-    Perceptron!(float, 3, 8, 10) decoder;
+    Perceptron!(10, 8, 3) encoder;
+    Perceptron!(3, 8, 10) decoder;
 
     alias parameters = AliasSeq!(encoder, decoder);
 
@@ -335,7 +358,9 @@ class AutoEncoder
 
 #### Use Sequence
 
-```d
+```d name=sequence
+import golem;
+
 alias Perceptron(size_t Input, size_t Hidden, size_t Output) = Sequence!(
         Linear!(float, Input, Hidden),
         Activation!sigmoid,
@@ -350,7 +375,8 @@ auto y = net(x);
 
 ### K-Fold
 
-```d
+```d name=kfold
+import std.parallelism : parallel;
 import golem.data.common;
 
 auto source = [1.0, 2.0, 3.0, 4.0, 5.0];
@@ -367,12 +393,12 @@ foreach (dataset; parallel(datasets[]))
 
 ### Save & Load
 
-```d
-auto model = new Model;
+```d name=custommodel
+auto model = new Perceptron!(2, 2, 1);
 auto archiver = new ModelArchiver("model_data");
 archiver.load(model); // recent saved parameters
 
-foreach (epoch; 0 .. N)
+foreach (epoch; 0 .. 10)
 {
     // train
 
