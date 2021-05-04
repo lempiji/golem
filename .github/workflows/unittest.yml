@@ -41,3 +41,7 @@ jobs:
         dub build --compiler=$DC -c build-only
         cd ../likehood
         dub build --compiler=$DC
+
+    - name: 'Test README Examples'
+      run: |
+        dub run md --compiler=$DC -- README.md
