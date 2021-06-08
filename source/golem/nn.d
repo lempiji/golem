@@ -443,3 +443,53 @@ private mixin template Conv2DImpl(T, size_t C_in, size_t C_out, size_t[] kernelS
         return conv2D!(padding)(x, weights, bias);
     }
 }
+
+
+class Perceptron(T, alias activateFn, size_t InputDim, size_t HiddenDim, size_t OutputDim, UseGradient useGrad = UseGradient.yes)
+{
+    Linear!(T, InputDim, HiddenDim, useGrad) fc1;
+    Linear!(T, HiddenDim, OutputDim, useGrad) fc2;
+
+    alias parameters = AliasSeq!(fc1, fc2);
+
+    this()
+    {
+        foreach (ref p; parameters)
+            p = new typeof(p);
+    }
+
+    auto opCall(U)(U x)
+    {
+        return fc2(activateFn(fc1(x)));
+    }
+}
+
+unittest
+{
+    import golem.math : sigmoid;
+
+    auto model = new Perceptron!(float, sigmoid, 2, 2, 1);
+    
+    auto x = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+    auto y = model(x);
+    static assert(isTensor!(typeof(y), float, [0, 1]));
+
+    auto z = tensor!([0, 2], UseGradient.no)([1.0f, 2.0f, 3.0f, 4.0f]);
+    auto w = model(z);
+    static assert(isTensor!(typeof(w), float, [0, 1]));
+}
+
+unittest
+{
+    import golem.math : sigmoid;
+
+    auto model = new Perceptron!(float, sigmoid, 2, 2, 1, UseGradient.no);
+
+    auto x = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+    auto y = model(x);
+    static assert(isTensor!(typeof(y), float, [0, 1]));
+
+    auto z = tensor!([0, 2], UseGradient.no)([1.0f, 2.0f, 3.0f, 4.0f]);
+    auto w = model(z);
+    static assert(isTensor!(typeof(w), float, [0, 1], UseGradient.no));
+}
