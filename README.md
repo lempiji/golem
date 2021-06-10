@@ -7,7 +7,7 @@ A library that provides tensors and computational graphs for machine learning.
 ## Concept
 
 1. Lower the hurdle and learning curve to getting started.
-2. Use language features to make model description simple and safe.
+2. Use language features to make model definition simple and safe.
 3. Unify the code and language for training and production environments.
 
 ## Features
