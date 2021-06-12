@@ -3,34 +3,28 @@ description "A simple tensor library for the computational graph on CPU"
 authors "lempiji"
 license "MIT"
 
+dependency "mir-algorithm" version="~>3.10.60"
 dependency "mir-blas" version="~>1.1.13"
-dependency "mir-algorithm" version="~>3.9.25"
-dependency "numir" version="2.0.5"
+dependency "numir" version="~>2.0.6"
 dependency "msgpack-d" version="~>1.0.3"
 
 configuration "default" {
-    targetType "library"
+	targetType "library"
 }
-
 configuration "unittest" {
-    dependency "silly" version="~>1.0.2"
-    dflags "-checkaction=context"
+	dependency "silly" version="~>1.1.1"
+	targetType "library"
+	dflags "-checkaction=context"
 }
-
 configuration "makedeps" {
-    dflags "-deps=deps.txt"
+	targetType "library"
+	dflags "-deps=deps.txt"
 }
-
 configuration "diff-update" {
-    targetType "library"
-    postBuildCommands "dub fetch ddeps"
-    postBuildCommands "dub run ddeps -- --update"
+	targetType "library"
+	postBuildCommands "dub fetch ddeps" "dub run ddeps -- --update"
 }
-
 configuration "diff" {
-    targetType "library"
-	postBuildCommands "dub build -c makedeps"
-	postBuildCommands "dub fetch ddeps"
-	postBuildCommands "dub run ddeps -- --focus=golem -e core -e std -e mir -e numir -o images/deps.dot"
-	postBuildCommands "dot -Tsvg -o images/deps.svg images/deps.dot"
+	targetType "library"
+	postBuildCommands "dub build -c makedeps" "dub fetch ddeps" "dub run ddeps -- --focus=golem -e core -e std -e mir -e numir -o images/deps.dot" "dot -Tsvg -o images/deps.svg images/deps.dot"
 }
