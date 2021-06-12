@@ -1236,7 +1236,7 @@ version (all) // dropout
             {
                 import std.random : uniform;
 
-                auto row = filter.value[i][].flattened;
+                auto row = filter.value[i].flattened;
                 foreach (j; 0 .. dropSize)
                 {
                     row[uniform(0, size)] = 0;
