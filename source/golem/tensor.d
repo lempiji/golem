@@ -117,13 +117,13 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
             const batchSize = data.length / elementSize(Shape[1 .. $]);
             import std.format : format;
             assert(batchSize * elementSize(Shape[1 .. $]) == data.length, format!"The number of elements in the data must match the shape of the tensor. Shape = %s, length=%s)"(Shape, data.length));
-            auto value = data.dup.sliced([
+            auto value = data.sliced([
                     batchSize, expandShape!(Shape[1 .. $])
                     ]);
         }
         else
         {
-            auto value = data.dup.sliced(Shape);
+            auto value = data.sliced(Shape);
         }
 
         this(value);
