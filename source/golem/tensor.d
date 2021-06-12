@@ -19,7 +19,7 @@ enum isTensor(T, U, size_t[] Shape) = isTensor!(T, U, Shape, Yes.gradient) || is
 
 enum canBackward(T) = isTensor!(T, Yes.gradient);
 
-bool testCompatibleStaticShape()(size_t[] lhsShape, size_t[] rhsShape)
+bool testCompatibleStaticShape(size_t[] lhsShape, size_t[] rhsShape) @safe @nogc pure nothrow
 {
     assert(lhsShape.length > 0);
     assert(rhsShape.length > 0);
