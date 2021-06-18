@@ -1136,7 +1136,7 @@ version (all) // softmax
 
 version (all) // softmaxCrossEntropy
 {
-    Tensor!(T, [Shape1[0], 1]) softmaxCrossEntropy(T, size_t[] Shape1, size_t[] Shape2, UseGradient useGrad)(Tensor!(T, Shape1, useGrad) x, Tensor!(T, Shape2, UseGradient.no) y)
+    Tensor!(T, [Shape1[0], 1], useGrad) softmaxCrossEntropy(T, size_t[] Shape1, size_t[] Shape2, UseGradient useGrad)(Tensor!(T, Shape1, useGrad) x, Tensor!(T, Shape2, UseGradient.no) y)
     if (Shape1.length == 2 && Shape2.length == 2 && Shape1[1] == Shape2[1])
     {
         static assert(Shape1[0] == 0 || Shape2[0] == 0 || Shape1[0] == Shape2[0]);
@@ -1155,19 +1155,29 @@ version (all) // softmaxCrossEntropy
             .fuse()
             .reshape([x.shape[0], 1], err);
 
-        x.usedCount++;
+        static if (useGrad)
+        {
+            x.usedCount++;
+        }
         alias Return = typeof(return);
         alias Value = Return.Value;
 
-        return new Return(z, (Value grads) {
-            x.backward((ref xGrads) {
-                immutable p = T(1) / xGrads.shape[1];
-                foreach (i; 0 .. xGrads.shape[0])
-                {
-                    xGrads[i][] += p * (x.value[i].map!exp / t[i] - y.value[i][]) * grads[i, 0];
-                }
+        static if (useGrad)
+        {
+            return new Return(z, (Value grads) {
+                x.backward((ref xGrads) {
+                    immutable p = T(1) / xGrads.shape[1];
+                    foreach (i; 0 .. xGrads.shape[0])
+                    {
+                        xGrads[i][] += p * (x.value[i].map!exp / t[i] - y.value[i][]) * grads[i, 0];
+                    }
+                });
             });
-        });
+        }
+        else
+        {
+            return new Return(z);
+        }
     }
 
     unittest
@@ -1215,6 +1225,37 @@ version (all) // softmaxCrossEntropy
         assert(x.grads[3, 0].isClose(g2), text(x.grads));
         assert(x.grads[3, 1].isClose(g1), text(x.grads));
         assert(x.grads[3, 2].isClose(g1), text(x.grads));
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 3], UseGradient.no)([
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]);
+        auto y = tensor!([0, 3], UseGradient.no)([
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 1.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+        ]);
+
+        auto loss = softmaxCrossEntropy(x, y);
+        assert(loss.shape == [4, 1]);
+
+        import std.math : isClose, E;
+        import std.format : format;
+
+        assert(loss.value[0, 0].isClose(0.3662040962), format!"%.10f"(loss.value[0, 0]));
+        assert(loss.value[1, 0].isClose(0.1838149046), format!"%.10f"(loss.value[1, 0]));
+        assert(loss.value[2, 0].isClose(0.1838149046), format!"%.10f"(loss.value[2, 0]));
+        assert(loss.value[3, 0].isClose(0.1838149046), format!"%.10f"(loss.value[3, 0]));
+
+        static assert(!__traits(compiles, {
+            loss.backward();
+        }));
     }
 }
 
