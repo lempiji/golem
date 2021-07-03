@@ -581,6 +581,68 @@ version (all) // relu
     }
 }
 
+version (all) // leakyRelu
+{
+    Tensor!(T, Shape, useGradient) leakyRelu(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x, T a = 0.01)
+    {
+        import std.algorithm : max;
+
+        auto y = slice(x.value.map!(t => t > 0 ? t : a * t));
+
+        alias Return = typeof(return);
+        alias Value = Return.Value;
+
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
+
+            return new typeof(return)(y, (Value grad) {
+                x.backward(grad * x.value.map!(t => T(t > 0 ? 1 : a)));
+            });
+        }
+        else
+        {
+            return new typeof(return)(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([2, 3])([-1.0, 0.0, 1.0, -2.0, 0.0, 2.0]);
+
+        auto y = leakyRelu(x, 0.02);
+
+        y.backward();
+
+        assert(y.value[0, 0] == -0.02);
+        assert(y.value[0, 1] == 0);
+        assert(y.value[0, 2] == 1.0);
+        assert(y.value[1, 0] == -0.04);
+        assert(y.value[1, 1] == 0);
+        assert(y.value[1, 2] == 2.0);
+
+        assert(x.grads[0, 0] == 0.02);
+        assert(x.grads[0, 1] == 0.02);
+        assert(x.grads[0, 2] == 1.0);
+        assert(x.grads[1, 0] == 0.02);
+        assert(x.grads[1, 1] == 0.02);
+        assert(x.grads[1, 2] == 1.0);
+    }
+    
+    unittest
+    {
+        auto x = tensor!([2, 3], No.gradient)([-1.0, 0.0, 1.0, -2.0, 0.0, 2.0]);
+        auto y = leakyRelu(x, 0.2);
+
+        assert(y.value[0, 0] == -0.2);
+        assert(y.value[0, 1] == 0);
+        assert(y.value[0, 2] == 1.0);
+        assert(y.value[1, 0] == -0.4);
+        assert(y.value[1, 1] == 0);
+        assert(y.value[1, 2] == 2.0);
+    }
+}
+
 version (all) // linear
 {
     // dfmt off
