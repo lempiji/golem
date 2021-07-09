@@ -300,7 +300,7 @@ class Perceptron(size_t Input, size_t Hidden, size_t Output)
     Linear!(float, Hidden, Output) fc2;
 
     // implements as a simple network module
-    mixin NetModules;
+    mixin NetModule;
 
     // is equals to
     /+
