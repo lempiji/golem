@@ -82,9 +82,11 @@ alias LabelTensor = Tensor!(float, [0, 3], UseGradient.no);
 
 Tuple!(InputTensor, LabelTensor) batchTensor(R)(R records)
 {
-	auto inputs = appender!(float[]);
-	auto labels = appender!(float[]);
+	static Appender!(float[]) inputs;
+	static Appender!(float[]) labels;
 
+	inputs.clear();
+	labels.clear();
 	foreach (Record data; records)
 	{
 		inputs.put(data.sepalLength);

@@ -95,11 +95,13 @@ do
 Tuple!(Tensor!(float, [0, InputDays]), Tensor!(float, [0, PredictDays])) batchTensor(Records)(
 		Records records)
 {
-	import std.array : appender;
+	import std.array : Appender;
 
-	auto inputs = appender!(float[]);
-	auto labels = appender!(float[]);
+	static Appender!(float[]) inputs;
+	static Appender!(float[]) labels;
 
+	inputs.clear();
+	labels.clear();
 	foreach (record; records)
 	{
 		inputs.put(record[0]);

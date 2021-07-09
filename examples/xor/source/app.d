@@ -86,10 +86,13 @@ class Model
 Tuple!(Tensor!(T, [0, expandShape!InputShape]), Tensor!(T, [0, expandShape!LabelShape])) batchTensor(size_t[] InputShape, size_t[] LabelShape, T)(Tuple!(T[], T[])[] dataset)
 out(r; r[0].shape[0] == r[1].shape[0])
 {
-	import std.array : appender;
-	auto dataBuf = appender!(T[]);
-	auto labelBuf = appender!(T[]);
+	import std.array : Appender;
+
+	static Appender!(T[]) dataBuf;
+	static Appender!(T[]) labelBuf;
 	
+	dataBuf.clear();
+	labelBuf.clear();
 	foreach(data; dataset)
 	{
 		dataBuf.put(data[0]);

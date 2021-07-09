@@ -116,10 +116,13 @@ alias LabelTensor = Tensor!(float, [0, 10], UseGradient.no);
 
 Tuple!(InputTensor, LabelTensor) batchTensor(R)(R dataset)
 {
-	import std.array : appender;
-	auto input = appender!(float[]);
-	auto label = appender!(float[]);
+	import std.array : Appender;
 
+	static Appender!(float[]) input;
+	static Appender!(float[]) label;
+
+	input.clear();
+	label.clear();
 	foreach (data; dataset)
 	{
 		input ~= data[0];

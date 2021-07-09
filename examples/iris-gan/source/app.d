@@ -102,8 +102,9 @@ alias InputTensor = Tensor!(float, [0, 4], UseGradient.no);
 
 InputTensor batchTensor(R)(R records)
 {
-	auto inputs = appender!(float[]);
+	static Appender!(float[]) data;
 
+	data.clear();
 	foreach (Record data; records)
 	{
 		inputs.put(data.sepalLength);
