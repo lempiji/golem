@@ -299,7 +299,11 @@ class Perceptron(size_t Input, size_t Hidden, size_t Output)
     Linear!(float, Input, Hidden) fc1;
     Linear!(float, Hidden, Output) fc2;
 
-    // targets of the optimization
+    // implements as a simple network module
+    mixin NetModules;
+
+    // is equals to
+    /+
     alias parameters = AliasSeq!(fc1, fc2);
 
     this()
@@ -308,6 +312,7 @@ class Perceptron(size_t Input, size_t Hidden, size_t Output)
         foreach (ref p; parameters)
             p = new typeof(p);
     }
+    +/
 
     auto forward(T)(T x)
     {
@@ -329,13 +334,7 @@ class AutoEncoder
     Perceptron!(10, 8, 3) encoder;
     Perceptron!(3, 8, 10) decoder;
 
-    alias parameters = AliasSeq!(encoder, decoder);
-
-    this()
-    {
-        foreach (ref p; parameters)
-            p = new typeof(p);
-    }
+    mixin NetModule;
 
     auto forward(T)(T x)
     {
