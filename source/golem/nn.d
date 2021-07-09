@@ -110,13 +110,14 @@ class BatchNorm(T, size_t[] Shape, UseGradient useGrad = UseGradient.yes)
 		import std.math : sqrt;
         import golem.math : broadcastOp;
 
+        enum eps = 1e-7;
+
 		if (isTrain && x.shape[0] != 0)
 		{
 			import mir.math.sum : mirsum = sum;
 			import mir.ndslice : transposed;
 			import golem.util : expandIndex;
 
-            enum eps = 1e-7;
 			immutable batchFactor = T(1.0) / x.shape[0];
 
             tempMean.value.flattened[] = 0;
@@ -136,12 +137,12 @@ class BatchNorm(T, size_t[] Shape, UseGradient useGrad = UseGradient.yes)
             this.mean.value[] = momentum * this.mean.value[] + (1 - momentum) * tempMean.value[];
 			this.var.value[] = momentum * this.var.value[] + (1 - momentum) * tempVar.value[];
 
-            this.temps.value[] = this.var.value.map!(a => sqrt(a + 1e-7));
-            tempVar.value[] = tempVar.value.map!(a => sqrt(a + 1e-7));
+            this.temps.value[] = this.var.value.map!(a => sqrt(a + eps));
+            tempVar.value[] = tempVar.value.map!(a => sqrt(a + eps));
             return broadcastOp!"+"(broadcastOp!"*"(broadcastOp!"-"(x, this.tempMean), factor / this.tempVar), offset);
 		}
 
-        this.temps.value[] = this.var.value.map!(a => sqrt(a + 1e-7));
+        this.temps.value[] = this.var.value.map!(a => sqrt(a + eps));
 		return broadcastOp!"+"(broadcastOp!"*"(broadcastOp!"-"(x, this.mean), factor / this.temps), offset);
 	}
 }
