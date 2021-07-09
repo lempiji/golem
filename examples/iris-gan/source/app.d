@@ -130,13 +130,7 @@ class Generator
 	Linear!(float, 32, 32) fc2;
 	Linear!(float, 32, 4) fc3;
 
-	alias parameters = AliasSeq!(fc1, fc2, fc3);
-
-	this()
-	{
-		foreach (ref p; parameters)
-			p = new typeof(p);
-	}
+	mixin NetModule;
 
 	auto generate(size_t batchSize)
 	{
@@ -157,12 +151,7 @@ class Discriminator
 	Linear!(float, 32, 16) fc2;
 	Linear!(float, 16, 2) fc3;
 
-	alias parameters = AliasSeq!(fc1, fc2, fc3);
-	this()
-	{
-		foreach (ref p; parameters)
-			p = new typeof(p);
-	}
+	mixin NetModule;
 
 	auto predict(UseGradient useGrad)(Tensor!(float, [0, 4], useGrad) x)
 	{

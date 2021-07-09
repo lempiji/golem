@@ -249,3 +249,73 @@ class ModelArchiver
         return recentPath;
     }
 }
+
+
+mixin template NetModule()
+{
+	mixin(parametersAliasSeqCode!(typeof(this)));
+
+	this()
+	{
+		foreach (ref p; parameters)
+		{
+			p = new typeof(p);
+		}
+	}
+}
+
+private template AllParameterMembersOf(T)
+{
+	private template isParameterMember(string name)
+	{
+		import golem.nn : hasParameters;
+		import golem.tensor : isTensor;
+
+		alias MemberType = typeof(__traits(getMember, T.init, name));
+
+		enum isParameterMember = hasParameters!(MemberType);
+	}
+
+	import std.traits : FieldNameTuple;
+
+	alias AllParameterMembersOf = Filter!(isParameterMember, FieldNameTuple!T);
+}
+
+string parametersAliasSeqCode(T)()
+{
+	enum names = [AllParameterMembersOf!T];
+
+	string code = "import std.meta : AliasSeq;\nalias parameters = AliasSeq!(";
+	foreach (i, name; names)
+	{
+		if (i > 0)
+			code ~= ",";
+		code ~= name;
+	}
+	code ~= ");";
+
+	return code;
+}
+
+unittest
+{
+	static class Test
+	{
+		Linear!(float, 16, 8) fc1;
+		BatchNorm!(float, [8]) bn1;
+
+		mixin NetModule;
+        // alias parameters = AliasSeq!(fc1, bn1);
+        // this() {
+        //     foreach (ref p; parameters)
+        //         p = new typeof(p);
+        // }
+	}
+
+	auto t = new Test;
+	static assert(t.parameters.length == 2);
+	assert(t.parameters[0] == t.fc1);
+	assert(t.parameters[1] == t.bn1);
+	assert(t.fc1 !is null);
+	assert(t.bn1 !is null);
+}

@@ -120,13 +120,7 @@ class Model
 	Linear!(float, 16, 16) fc3;
 	Linear!(float, 16, 3) fc4;
 
-	alias parameters = AliasSeq!(fc1, fc2, fc3, fc4);
-
-	this()
-	{
-		foreach (ref p; parameters)
-			p = new typeof(p);
-	}
+	mixin NetModule;
 
 	auto forward(T)(T x, bool isTrain)
 	{

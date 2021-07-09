@@ -147,13 +147,7 @@ class Model
 	Linear!(float, 64, 256) decode2;
 	Linear!(float, 256, 28 * 28) decode3;
 
-	alias parameters = AliasSeq!(fc1, fc2, fmu, fvar, decode1, decode2, decode3);
-
-	this()
-	{
-		foreach (ref p; parameters)
-			p = new typeof(p);
-	}
+	mixin NetModule;
 
 	auto forward(InputTensor x, bool isTrain)
 	{

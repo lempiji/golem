@@ -175,13 +175,7 @@ class Model
 	Linear!(float, 5, 32) fc_stdev1;
 	Linear!(float, 32, 3) fc_stdev2;
 
-	alias parameters = AliasSeq!(fc_mubase, fc_mu1, fc_mu2, fc_stdev1, fc_stdev2);
-
-	this()
-	{
-		foreach (ref p; parameters)
-			p = new typeof(p);
-	}
+	mixin NetModule;
 
 	auto forward(T)(T x, bool isTrain)
 	{

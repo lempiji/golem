@@ -133,13 +133,7 @@ class Model
 	Linear!(float, 28 * 28, 100) fc1;
 	Linear!(float, 100, 10) fc2;
 
-	alias parameters = AliasSeq!(fc1, fc2);
-
-	this()
-	{
-		foreach (ref p; parameters)
-			p = new typeof(p);
-	}
+	mixin NetModule;
 
 	auto forward(T)(T x)
 	{
