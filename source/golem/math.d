@@ -663,9 +663,9 @@ version (all) // linear
 
         enum OutputDim = ShapeW[1];
 
-        auto batchSize = x.value.shape[0];
+        const batchSize = x.value.shape[0];
         auto result = uninitSlice!T([batchSize, OutputDim]);
-        foreach (i; 0 .. result.shape[0])
+        foreach (i; 0 .. batchSize)
         {
             result[i, 0 .. $] = B.value[];
         }
@@ -699,7 +699,7 @@ version (all) // linear
                 static if (canBackward!(typeof(B))) 
                 {
                     B.backward((ref bGrads) {
-                        foreach (i; 0 .. grad.shape[0])
+                        foreach (i; 0 .. batchSize)
                         {
                             bGrads[] += grad[i, 0 .. $];
                         }
