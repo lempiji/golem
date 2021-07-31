@@ -3,7 +3,7 @@ description "A simple tensor library for the computational graph on CPU"
 authors "lempiji"
 license "MIT"
 
-dependency "mir-algorithm" version="~>3.10.60"
+dependency "mir-algorithm" version="~>3.10.76"
 dependency "mir-blas" version="~>1.1.13"
 dependency "numir" version="~>2.0.6"
 dependency "msgpack-d" version="~>1.0.3"
