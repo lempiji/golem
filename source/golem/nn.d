@@ -132,7 +132,7 @@ class BatchNorm(T, size_t[] Shape, UseGradient useGrad = UseGradient.yes)
 			tv.flattened[] = 0;
 			foreach (t; x.value.ipack!1)
 			{
-				tv[] += (t[] - tm[]) ^^ 2;
+				tv[] += (t[] - tm[]).map!(a => a * a);
 			}
             tv[] /= x.shape[0];
 
