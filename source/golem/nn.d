@@ -120,22 +120,24 @@ class BatchNorm(T, size_t[] Shape, UseGradient useGrad = UseGradient.yes)
 			import mir.ndslice : transposed;
 			import golem.util : expandIndex;
 
-            tempMean.value.flattened[] = 0;
+            auto tm = tempMean.value;
+            tm.flattened[] = 0;
 			foreach (t; x.value.ipack!1)
 			{
-                tempMean.value[] += t;
+                tm[] += t[];
 			}
-            tempMean.value[] /= x.shape[0];
+            tm[] /= x.shape[0];
 
-			tempVar.value.flattened[] = 0;
-			foreach (t; x.value)
+            auto tv = tempVar.value;
+			tv.flattened[] = 0;
+			foreach (t; x.value.ipack!1)
 			{
-				tempVar.value[] += (t[] - tempMean.value[]) ^^ 2;
+				tv[] += (t[] - tm[]) ^^ 2;
 			}
-            tempVar.value[] /= x.shape[0];
+            tv[] /= x.shape[0];
 
-            this.mean.value[] = momentum * this.mean.value[] + (1 - momentum) * tempMean.value[];
-			this.var.value[] = momentum * this.var.value[] + (1 - momentum) * tempVar.value[];
+            this.mean.value[] = momentum * this.mean.value[] + (1 - momentum) * tm[];
+			this.var.value[] = momentum * this.var.value[] + (1 - momentum) * tv[];
 
             this.temps.value[] = this.var.value.map!(a => sqrt(a + eps));
             tempVar.value[] = tempVar.value.map!(a => sqrt(a + eps));
