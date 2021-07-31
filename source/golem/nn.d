@@ -107,32 +107,32 @@ class BatchNorm(T, size_t[] Shape, UseGradient useGrad = UseGradient.yes)
 	{
 		static assert(ShapeX[1 .. $] == Shape);
 
+        assert(x.shape[0] != 0);
+
 		import std.math : sqrt;
         import golem.math : broadcastOp;
 
         enum eps = 1e-7;
 
-		if (isTrain && x.shape[0] != 0)
+		if (isTrain && x.shape[0] > 1)
 		{
 			import mir.math.sum : mirsum = sum;
 			import mir.ndslice : transposed;
 			import golem.util : expandIndex;
-
-			immutable batchFactor = T(1.0) / x.shape[0];
 
             tempMean.value.flattened[] = 0;
 			foreach (t; x.value.ipack!1)
 			{
                 tempMean.value[] += t;
 			}
-            tempMean.value[] *= batchFactor;
+            tempMean.value[] /= x.shape[0];
 
 			tempVar.value.flattened[] = 0;
 			foreach (t; x.value)
 			{
 				tempVar.value[] += (t[] - tempMean.value[]) ^^ 2;
 			}
-            tempVar.value[] *= batchFactor;
+            tempVar.value[] /= x.shape[0];
 
             this.mean.value[] = momentum * this.mean.value[] + (1 - momentum) * tempMean.value[];
 			this.var.value[] = momentum * this.var.value[] + (1 - momentum) * tempVar.value[];
