@@ -13,6 +13,7 @@ digraph {
     {
         node [style=filled color="#bef5cb" fillcolor="#e6ffed"];
         "golem.data.common"
+        "golem.trainer"
     }
     "golem" -> "golem.math";
     "golem" -> "golem.metrics";
@@ -34,4 +35,6 @@ digraph {
     "golem.random" -> "golem.util";
     "golem.tensor" -> "golem.util";
     "golem" -> "golem.data.common" [color="#2cbe4e"];
+    "golem" -> "golem.trainer" [color="#2cbe4e"];
+    "golem.trainer" -> "golem.tensor" [color="#2cbe4e"];
 }
