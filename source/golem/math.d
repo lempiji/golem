@@ -1437,11 +1437,11 @@ version (all) // concat
         alias Return = ConcatTensor!(T, U);
 
         const batchSize = x.shape[0];
-        auto z = uninitSlice!(T.ElementType)(batchSize, x.shape[1] + y.shape[1]);
+        auto z = uninitSlice!(T.ElementType)(batchSize, x.staticShape[1] + y.staticShape[1]);
         foreach (i; 0 .. batchSize)
         {
-            z[i][0 .. x.shape[1]] = x.value[i][0 .. $];
-            z[i][x.shape[1] .. $] = y.value[i][0 .. $];
+            z[i][0 .. x.staticShape[1]] = x.value[i][0 .. $];
+            z[i][x.staticShape[1] .. $] = y.value[i][0 .. $];
         }
 
         static if (canBackward!(Return))
@@ -1452,13 +1452,13 @@ version (all) // concat
                 static if (canBackward!T)
                 {
                     x.backward((ref xGrads) {
-                        xGrads[] += grads[0 .. $, 0 .. x.shape[1]];
+                        xGrads[] += grads[0 .. $, 0 .. x.staticShape[1]];
                     });
                 }
                 static if (canBackward!U)
                 {
                     y.backward((ref yGrads) {
-                        yGrads[] += grads[0 .. $, x.shape[1] .. $];
+                        yGrads[] += grads[0 .. $, x.staticShape[1] .. $];
                     });
                 }
             });
