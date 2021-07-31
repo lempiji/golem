@@ -53,13 +53,7 @@ class Model
 	Linear!(float, 2, 2) fc1;
 	Linear!(float, 2, 1) fc2;
 
-	alias parameters = AliasSeq!(fc1, fc2);
-	
-	this()
-	{
-		fc1 = new Linear!(float, 2, 2);
-		fc2 = new Linear!(float, 2, 1);
-	}
+	mixin NetModule;
 
 	auto forward(size_t[2] Shape)(Tensor!(float, Shape) x)
 	if (Shape[1] == 2)
@@ -74,12 +68,6 @@ class Model
 		auto t = label - y;
 		auto s = t * t;
 		return sum(s);
-	}
-
-	void resetGrads()
-	{
-		fc1.resetGrads();
-		fc2.resetGrads();
 	}
 }
 
