@@ -63,6 +63,13 @@ unittest
     assert(lossLast.value[0] < lossFirst.value[0]);
 }
 
+interface Optimizer
+{
+    void resetGrads();
+
+    void trainStep();
+}
+
 struct SGDConfig
 {
     float learningRate = 0.01;
@@ -70,7 +77,7 @@ struct SGDConfig
     float weightDecay = 0;
 }
 
-class SGD(Params...)
+class SGD(Params...) : Optimizer
 {
     SGDConfig config;
     Params params;
@@ -141,7 +148,7 @@ struct AdamConfig
     float weightDecay = 0;
 }
 
-class Adam(Params...)
+class Adam(Params...) : Optimizer
 {
     alias Values = staticMap!(mapValue, Params);
 
@@ -216,7 +223,7 @@ class Adam(Params...)
 }
 
 
-class AdaBelief(Params...)
+class AdaBelief(Params...) : Optimizer
 {
     alias Values = staticMap!(mapValue, Params);
 
@@ -447,6 +454,34 @@ unittest
     auto model = new Model;
     auto optimizer = createOptimizer!SGD(model);
     assert(optimizer !is null);
+}
+
+unittest
+{
+    enum OptimizerKind
+    {
+        SGD,
+        Adam,
+        AdaBelief,
+    }
+
+    auto fc = new Linear!(float, 2, 1)(0);
+
+    Optimizer optimizer;
+    OptimizerKind kind = OptimizerKind.Adam;
+
+    final switch (kind)
+    {
+    case OptimizerKind.SGD:
+        optimizer = createOptimizer!SGD(fc);
+        break;
+    case OptimizerKind.Adam:
+        optimizer = createOptimizer!Adam(fc);
+        break;
+    case OptimizerKind.AdaBelief:
+        optimizer = createOptimizer!AdaBelief(fc);
+        break;
+    }
 }
 
 private alias mapValue(T) = T.Value;
