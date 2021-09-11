@@ -23,6 +23,18 @@ class Linear(T, size_t InputDim, size_t OutputDim, UseGradient useGradient = Use
         bias = uniform!(T, [OutputDim], useGradient);
     }
 
+    this(T initial)
+    {
+        weights = new Tensor!(T, [InputDim, OutputDim], useGradient)(initial);
+        bias = new Tensor!(T, [OutputDim], useGradient)(initial);
+    }
+
+    this(T initialWeight, T initialBias)
+    {
+        weights = new Tensor!(T, [InputDim, OutputDim], useGradient)(initialWeight);
+        bias = new Tensor!(T, [OutputDim], useGradient)(initialBias);
+    }
+
     auto opCall(size_t[2] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
             if (Shape[1] == InputDim)
     {
@@ -57,6 +69,24 @@ unittest
 {
     auto fc = new Linear!(float, 2, 1);
     static assert(hasParameters!(typeof(fc)));
+}
+
+unittest
+{
+    auto fc0 = new Linear!(float, 2, 1)(-1);
+    assert(fc0.weights.value[0, 0] == -1);
+    assert(fc0.weights.value[1, 0] == -1);
+    assert(fc0.bias.value[0] == -1);
+
+    auto fc1 = new Linear!(float, 2, 1)(0, 1);
+    assert(fc1.weights.value[0, 0] == 0);
+    assert(fc1.weights.value[1, 0] == 0);
+    assert(fc1.bias.value[0] == 1);
+
+    auto fc2 = new Linear!(float, 2, 1)(1, 0);
+    assert(fc2.weights.value[0, 0] == 1);
+    assert(fc2.weights.value[1, 0] == 1);
+    assert(fc2.bias.value[0] == 0);
 }
 
 unittest
