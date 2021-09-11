@@ -8,3 +8,4 @@ public import golem.nn;
 public import golem.optimizer;
 public import golem.tensor;
 public import golem.trainer;
+public import golem.models;

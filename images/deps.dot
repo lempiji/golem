@@ -1,6 +1,7 @@
 digraph {
     {
         "golem"
+        "golem.data.common"
         "golem.math"
         "golem.metrics"
         "golem.model"
@@ -8,19 +9,22 @@ digraph {
         "golem.optimizer"
         "golem.random"
         "golem.tensor"
+        "golem.trainer"
         "golem.util"
     }
     {
         node [style=filled color="#bef5cb" fillcolor="#e6ffed"];
-        "golem.data.common"
-        "golem.trainer"
+        "golem.models"
+        "golem.models.linear"
     }
+    "golem" -> "golem.data.common";
     "golem" -> "golem.math";
     "golem" -> "golem.metrics";
     "golem" -> "golem.model";
     "golem" -> "golem.nn";
     "golem" -> "golem.optimizer";
     "golem" -> "golem.tensor";
+    "golem" -> "golem.trainer";
     "golem.math" -> "golem.tensor";
     "golem.math" -> "golem.util";
     "golem.metrics" -> "golem.tensor";
@@ -34,7 +38,12 @@ digraph {
     "golem.random" -> "golem.tensor";
     "golem.random" -> "golem.util";
     "golem.tensor" -> "golem.util";
-    "golem" -> "golem.data.common" [color="#2cbe4e"];
-    "golem" -> "golem.trainer" [color="#2cbe4e"];
-    "golem.trainer" -> "golem.tensor" [color="#2cbe4e"];
+    "golem.trainer" -> "golem.tensor";
+    "golem" -> "golem.models" [color="#2cbe4e"];
+    "golem.models" -> "golem.models.linear" [color="#2cbe4e"];
+    "golem.models.linear" -> "golem.math" [color="#2cbe4e"];
+    "golem.models.linear" -> "golem.nn" [color="#2cbe4e"];
+    "golem.models.linear" -> "golem.optimizer" [color="#2cbe4e"];
+    "golem.models.linear" -> "golem.tensor" [color="#2cbe4e"];
+    "golem.models.linear" -> "golem.trainer" [color="#2cbe4e"];
 }
