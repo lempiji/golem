@@ -1656,13 +1656,16 @@ version (all) // boradcastOp
     template broadcastOp(string op)
     if (op == "+" || op == "-")
     {
+        /+
+        [N, C, W, H] + [C, W, H]
+        [N, C, W, H] - [C, W, H]
+        +/
         auto broadcastOp(T, size_t[] Shape1, UseGradient useGrad1, size_t[] Shape2, UseGradient useGrad2)(
                 Tensor!(T, Shape1, useGrad1) x, Tensor!(T, Shape2, useGrad2) y)
+            if (Shape1[$ - Shape2.length .. $] == Shape2)
         {
             enum Dim1 = Shape1.length;
             enum Dim2 = Shape2.length;
-
-            static assert(Shape1[$ - Dim2 .. $] == Shape2);
 
             static if (op == "+")
                 alias binOp = (a, b) => a + b;
@@ -1795,13 +1798,14 @@ version (all) // boradcastOp
     template broadcastOp(string op)
     if (op == "*")
     {
+        /+
+        [N, C, W, H] * [C, W, H]
+        +/
         auto broadcastOp(T, size_t[] Shape1, UseGradient useGrad1, size_t[] Shape2, UseGradient useGrad2)(
                 Tensor!(T, Shape1, useGrad1) x, Tensor!(T, Shape2, useGrad2) y)
+            if (Shape1[$ - Shape2.length .. $] == Shape2)
         {
-            enum Dim1 = Shape1.length;
             enum Dim2 = Shape2.length;
-
-            static assert(Shape1[$ - Dim2 .. $] == Shape2);
 
             alias binOp = (a, b) => a * b;
             
