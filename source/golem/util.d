@@ -16,6 +16,37 @@ template expandShape(size_t[] Shape)
     }
 }
 
+size_t[] trimRightOneDims(size_t[] shape)
+in
+{
+    assert(shape.length >= 1);
+}
+do
+{
+    if (shape.length == 1)
+    {
+        return shape;
+    }
+    foreach_reverse (i, dim; shape)
+    {
+        if (dim == 1) continue;
+
+        return shape[0 .. i + 1];
+    }
+    return shape[0 .. 1];
+}
+
+unittest
+{
+    assert(trimRightOneDims([0, 2, 2, 2]) == [0, 2, 2, 2]);
+    assert(trimRightOneDims([0, 2, 2, 1]) == [0, 2, 2]);
+    assert(trimRightOneDims([0, 2, 1, 1]) == [0, 2]);
+    assert(trimRightOneDims([0, 1, 1, 1]) == [0]);
+    assert(trimRightOneDims([1, 1, 1, 1]) == [1]);
+    assert(trimRightOneDims([0, 1, 1, 2]) == [0, 1, 1, 2]);
+    assert(trimRightOneDims([1, 2, 2, 2]) == [1, 2, 2, 2]);
+}
+
 template expandIndex(size_t From, size_t To)
 if (From <= To)
 {

@@ -114,12 +114,20 @@ class Tensor(T, size_t[] Shape, UseGradient hasGradient = UseGradient.yes)
     {
         static if (Shape[0] == 0)
         {
-            const batchSize = data.length / elementSize(Shape[1 .. $]);
-            import std.format : format;
-            assert(batchSize * elementSize(Shape[1 .. $]) == data.length, format!"The number of elements in the data must match the shape of the tensor. Shape = %s, length=%s)"(Shape, data.length));
-            auto value = data.sliced([
-                    batchSize, expandShape!(Shape[1 .. $])
-                    ]);
+            static if (Shape.length == 1)
+            {
+                const batchSize = data.length;
+                auto value = data.sliced(batchSize);
+            }
+            else
+            {
+                const batchSize = data.length / elementSize(Shape[1 .. $]);
+                import std.format : format;
+                assert(batchSize * elementSize(Shape[1 .. $]) == data.length, format!"The number of elements in the data must match the shape of the tensor. Shape = %s, length=%s)"(Shape, data.length));
+                auto value = data.sliced([
+                        batchSize, expandShape!(Shape[1 .. $])
+                        ]);
+            }
         }
         else
         {
