@@ -2042,6 +2042,119 @@ version (all) // multicastOp
 
         assert(z.value.flattened == [-1.5, -0.5, 0.5, 1.5, -1.5, -0.5, 0.5, 1.5]);
     }
+
+
+    template multicastOp(string op)
+    if (op == "*")
+    {
+        /+
+        [N, C, W, H] * [N, C]
+        +/
+        auto multicastOp(T, size_t[] Shape1, UseGradient useGrad1, size_t[] Shape2, UseGradient useGrad2)(
+                Tensor!(T, Shape1, useGrad1) x, Tensor!(T, Shape2, useGrad2) y)
+            if (Shape1[0 .. trimRightOneDims(Shape2).length] == trimRightOneDims(Shape2))
+        {
+            enum Dim2 = trimRightOneDims(Shape2).length;
+
+            auto yv = y.value;
+
+            auto z = slice(x.value);
+            foreach (t; zip(z.ipack!Dim2.flattened, yv.flattened))
+            {
+                t[0][] *= t[1];
+            }
+
+            static if (useGrad1 || useGrad2)
+            {
+                static if (useGrad1) x.usedCount++;
+                static if (useGrad2) y.usedCount++;
+                return new Tensor!(T, Shape1, UseGradient.yes)(z, (grads) {
+                    static if (useGrad1)
+                    {
+                        x.backward((ref xGrads) {
+                            foreach (t; zip(xGrads.ipack!Dim2.flattened, grads.ipack!Dim2.flattened, y.value.flattened))
+                            {
+                                t[0][] += t[1][] * t[2];
+                            }
+                        });
+                    }
+                    static if (useGrad2)
+                    {
+                        y.backward((ref yGrads) {
+                            import mir.math.sum : mirsum = sum;
+
+                            yGrads[] += (grads * x.value).ipack!Dim2.map!(a => mirsum(a));
+                        });
+                    }
+                });
+            }
+            else
+            {
+                return new Tensor!(T, Shape1, UseGradient.no)(z);
+            }
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        auto y = tensor!([0])([2.0, 3.0]);
+
+        auto z = multicastOp!"*"(x, y);
+
+        import std.math : isClose;
+
+        assert(z.value[0, 0, 0] == 1.0 * 2);
+        assert(z.value[0, 0, 1] == 2.0 * 2);
+        assert(z.value[0, 1, 0] == 3.0 * 2);
+        assert(z.value[0, 1, 1] == 4.0 * 2);
+        assert(z.value[1, 0, 0] == 5.0 * 3);
+        assert(z.value[1, 0, 1] == 6.0 * 3);
+        assert(z.value[1, 1, 0] == 7.0 * 3);
+        assert(z.value[1, 1, 1] == 8.0 * 3);
+
+        z.backward();
+
+        assert(x.grads[0, 0, 0] == 2.0);
+        assert(x.grads[0, 0, 1] == 2.0);
+        assert(x.grads[0, 1, 0] == 2.0);
+        assert(x.grads[0, 1, 1] == 2.0);
+        assert(x.grads[1, 0, 0] == 3.0);
+        assert(x.grads[1, 0, 1] == 3.0);
+        assert(x.grads[1, 1, 0] == 3.0);
+        assert(x.grads[1, 1, 1] == 3.0);
+
+        assert(y.grads[0] == 1.0 + 2.0 + 3.0 + 4.0);
+        assert(y.grads[1] == 5.0 + 6.0 + 7.0 + 8.0);
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2])([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([0], UseGradient.no)([10.0, 20.0]);
+
+        auto z = multicastOp!"*"(x, y);
+        z.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([0])([10.0, 20.0]);
+
+        auto z = multicastOp!"*"(x, y);
+        z.backward();
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2], UseGradient.no)([1.0, 2.0, 3.0, 4.0]);
+        auto y = tensor!([0], UseGradient.no)([10.0, 20.0]);
+
+        auto z = multicastOp!"*"(x, y);
+
+        static assert(!canBackward!(typeof(z)));
+    }
 }
 
 version (all) // splitEvenOdd2D
