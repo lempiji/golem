@@ -2560,7 +2560,7 @@ version (all) // concat2D
 version (all) // projection1D
 {
     auto projection1D(size_t axis, T, size_t[] ShapeW, UseGradient useGradW, size_t[] ShapeX, UseGradient useGradX)(Tensor!(T, ShapeX, useGradX) x, Tensor!(T, ShapeW, useGradW) w)
-    if ((axis == 2 || axis == 3) && ShapeX.length == 4 && ShapeW.length == 2 && ShapeX[axis] == ShapeW[0])
+    if (ShapeX.length == 4 && (axis == 2 || axis == 3) && ShapeW.length == 2 && ShapeX[axis] == ShapeW[0])
     {
         enum H = axis == 2 ? ShapeW[1] : ShapeX[2];
         enum W = axis == 3 ? ShapeW[1] : ShapeX[3];
@@ -2638,7 +2638,88 @@ version (all) // projection1D
             return new Tensor!(T, ReturnShape, UseGradient.no)(y);
         }
     }
+    
+    auto projection1D(size_t axis, T, size_t[] ShapeW, UseGradient useGradW, size_t[] ShapeX, UseGradient useGradX)(Tensor!(T, ShapeX, useGradX) x, Tensor!(T, ShapeW, useGradW) w)
+    if (ShapeX.length == 3 && (axis == 1 || axis == 2) && ShapeW.length == 2 && ShapeX[axis] == ShapeW[0])
+    {
+        enum H = axis == 1 ? ShapeW[1] : ShapeX[1];
+        enum W = axis == 2 ? ShapeW[1] : ShapeX[2];
+        auto y = uninitSlice!T(x.shape[0], H, W);
 
+        import mir.blas : gemm;
+
+        auto tx = x.value.ipack!1.flattened;
+        auto ty = y.ipack!1.flattened;
+        static if (axis == 1)
+        {
+            auto tw = w.value.transposed;
+            foreach (t; zip(tx, ty))
+            {
+                gemm(T(1), tw, t[0], T(0), t[1]);
+            }
+        }
+        else static if (axis == 2)
+        {
+            foreach (t; zip(tx, ty))
+            {
+                gemm(T(1), t[0], w.value, T(0), t[1]);
+            }
+        }
+
+        enum size_t[3] ReturnShape = [ShapeX[0], H, W];
+        static if (useGradW || useGradX)
+        {
+            static if (useGradW)
+                w.usedCount++;
+            static if (useGradX)
+                x.usedCount++;
+
+            return new Tensor!(T, ReturnShape)(y, (grads) {
+                static if (useGradW)
+                {
+                    w.backward((ref wGrads) {
+                        auto tx = x.value.ipack!1.flattened;
+                        auto tg = grads.ipack!1.flattened;
+                        foreach (t; zip(tx, tg))
+                        {
+                            static if (axis == 1)
+                            {
+                                gemm(T(1), t[0], t[1].transposed, T(1), wGrads);
+                            }
+                            else static if (axis == 2)
+                            {
+                                gemm(T(1), t[0].transposed, t[1], T(1), wGrads);
+                            }
+                        }
+                    });
+                }
+                static if (useGradX)
+                {
+                    x.backward((ref xGrads) {
+                        auto txg = xGrads.ipack!1.flattened;
+                        auto tg = grads.ipack!1.flattened;
+                        foreach (t; zip(txg, tg))
+                        {
+                            static if (axis == 1)
+                            {
+                                gemm(T(1), w.value, t[1], T(1), t[0]);
+                            }
+                            else static if (axis == 2)
+                            {
+                                gemm(T(1), w.value, t[1].transposed, T(1), t[0].transposed);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        else
+        {
+            return new Tensor!(T, ReturnShape, UseGradient.no)(y);
+        }
+    }
+
+    // Shape.length == 4
     unittest
     {
         auto x = tensor!([1, 1, 2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
@@ -2731,6 +2812,101 @@ version (all) // projection1D
         assert(y.value[0, 0, 2, 0] == 29);
         assert(y.value[0, 0, 2, 1] == 40);
         assert(y.value[0, 0, 2, 2] == 51);
+    }
+
+    // Shape.length == 3
+    unittest
+    {
+        auto x = tensor!([1, 2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+
+        auto y = projection1D!1(x, w);
+        assert(y.shape == [1, 3, 2]);
+        assert(y.value[0, 0, 0] == 13);
+        assert(y.value[0, 0, 1] == 18);
+        assert(y.value[0, 1, 0] == 17);
+        assert(y.value[0, 1, 1] == 24);
+        assert(y.value[0, 2, 0] == 21);
+        assert(y.value[0, 2, 1] == 30);
+
+        y.backward();
+
+        assert(x.grads[0, 0, 0] == 6);
+        assert(x.grads[0, 0, 1] == 6);
+        assert(x.grads[0, 1, 0] == 15);
+        assert(x.grads[0, 1, 1] == 15);
+
+        assert(w.grads[0, 0] == 3);
+        assert(w.grads[0, 1] == 3);
+        assert(w.grads[0, 2] == 3);
+        assert(w.grads[1, 0] == 7);
+        assert(w.grads[1, 1] == 7);
+        assert(w.grads[1, 2] == 7);
+    }
+
+    unittest
+    {
+        auto x = tensor!([1, 2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+        auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+
+        auto y = projection1D!1(x, w);
+        assert(y.shape == [1, 3, 3]);
+        assert(y.value[0, 0, 0] == 17);
+        assert(y.value[0, 0, 1] == 22);
+        assert(y.value[0, 0, 2] == 27);
+        assert(y.value[0, 1, 0] == 22);
+        assert(y.value[0, 1, 1] == 29);
+        assert(y.value[0, 1, 2] == 36);
+        assert(y.value[0, 2, 0] == 27);
+        assert(y.value[0, 2, 1] == 36);
+        assert(y.value[0, 2, 2] == 45);
+    }
+
+    unittest
+    {
+        auto x = tensor!([1, 2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+
+        auto y = projection1D!2(x, w);
+        assert(y.shape == [1, 2, 3]);
+        assert(y.value[0, 0, 0] == 9);
+        assert(y.value[0, 0, 1] == 12);
+        assert(y.value[0, 0, 2] == 15);
+        assert(y.value[0, 1, 0] == 19);
+        assert(y.value[0, 1, 1] == 26);
+        assert(y.value[0, 1, 2] == 33);
+
+        y.backward();
+
+        assert(x.grads[0, 0, 0] == 6);
+        assert(x.grads[0, 0, 1] == 15);
+        assert(x.grads[0, 1, 0] == 6);
+        assert(x.grads[0, 1, 1] == 15);
+
+        assert(w.grads[0, 0] == 4);
+        assert(w.grads[0, 1] == 4);
+        assert(w.grads[0, 2] == 4);
+        assert(w.grads[1, 0] == 6);
+        assert(w.grads[1, 1] == 6);
+        assert(w.grads[1, 2] == 6);
+    }
+
+    unittest
+    {
+        auto x = tensor!([1, 3, 2])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+        auto w = tensor!([2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+
+        auto y = projection1D!2(x, w);
+        assert(y.shape == [1, 3, 3]);
+        assert(y.value[0, 0, 0] == 9);
+        assert(y.value[0, 0, 1] == 12);
+        assert(y.value[0, 0, 2] == 15);
+        assert(y.value[0, 1, 0] == 19);
+        assert(y.value[0, 1, 1] == 26);
+        assert(y.value[0, 1, 2] == 33);
+        assert(y.value[0, 2, 0] == 29);
+        assert(y.value[0, 2, 1] == 40);
+        assert(y.value[0, 2, 2] == 51);
     }
 }
 
