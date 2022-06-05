@@ -338,6 +338,65 @@ unittest
     static assert(!hasParameters!(typeof(net)));
 }
 
+class Projection1D(T, size_t Axis, size_t From, size_t To, UseGradient useGradient = UseGradient.yes)
+{
+    Tensor!(T, [From, To], useGradient) weights;
+    
+    alias parameters = AliasSeq!(weights);
+    this()
+    {
+        weights = uniform!(T, [From, To], useGradient);
+    }
+
+    auto opCall(U)(U x)
+    if (isTensor!U && (U.staticShape.length == 3 || U.staticShape.length == 4) && U.staticShape[Axis] == From)
+    {
+        import golem.math: projection1D;
+
+        return projection1D!Axis(x, weights);
+    }
+}
+
+unittest
+{
+    auto proj1 = new Projection1D!(float, 3, 3, 2);
+
+    auto x = tensor!([1, 1, 2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+    auto y = proj1(x);
+
+    assert(y.shape == [1, 1, 2, 2]);
+}
+
+unittest
+{
+    auto proj1 = new Projection1D!(float, 2, 2, 3);
+
+    auto x = tensor!([1, 1, 2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+    auto y = proj1(x);
+
+    assert(y.shape == [1, 1, 3, 3]);
+}
+
+unittest
+{
+    auto proj1 = new Projection1D!(float, 1, 2, 3);
+
+    auto x = tensor!([1, 2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+    auto y = proj1(x);
+
+    assert(y.shape == [1, 3, 3]);
+}
+
+unittest
+{
+    auto proj1 = new Projection1D!(float, 2, 3, 2);
+
+    auto x = tensor!([1, 2, 3])([1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f]);
+    auto y = proj1(x);
+
+    assert(y.shape == [1, 2, 2]);
+}
+
 class LiftPool2D(T, size_t Height, size_t Width, UseGradient useGradient = UseGradient.yes)
 {
     enum HalfH = Height / 2;
