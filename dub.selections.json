@@ -1,16 +1,16 @@
 {
 	"fileVersion": 1,
 	"versions": {
-		"cblas": "2.3.1",
+		"cblas": "2.3.2",
 		"lapack": "0.4.1",
 		"lubeck": "1.3.2",
-		"mir-algorithm": "3.13.2",
+		"mir-algorithm": "3.16.5",
 		"mir-blas": "1.1.14",
-		"mir-core": "1.1.108",
+		"mir-core": "1.3.9",
 		"mir-lapack": "1.2.5",
 		"mir-linux-kernel": "1.2.1",
 		"mir-random": "2.2.19",
-		"msgpack-d": "1.0.3",
+		"msgpack-d": "1.0.4",
 		"numir": "2.0.6",
 		"silly": "1.1.1",
 		"sumtype": "0.9.5"
