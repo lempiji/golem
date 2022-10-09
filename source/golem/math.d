@@ -1068,8 +1068,10 @@ version (all) // flatten
 {
     Tensor!(T, [Shape[0], elementSize(Shape[1 .. $])], useGradient) flatten(T, size_t[] Shape, UseGradient useGradient)(Tensor!(T, Shape, useGradient) x)
     {
+        const batchSize = x.shape[0];
+
         int err;
-        auto y = x.value.reshape([x.value.shape[0], -1], err);
+        auto y = x.value.reshape([batchSize, -1], err);
         assert(err == 0);
 
         static if (canBackward!(typeof(x)))
@@ -1078,12 +1080,11 @@ version (all) // flatten
 
             alias Value = typeof(return).Value;
             return new typeof(return)(y, (Value grad) {
-                int err;
-                auto reshaped = grad.reshape([
-                        grad.shape[0], expandShape!(Shape[1 .. $])
-                    ], err);
-                assert(err == 0);
-                x.backward(reshaped);
+                x.backward((ref xGrads) {
+                    int _err;
+                    xGrads[] += grad.reshape([batchSize, expandShape!(Shape[1 .. $])], _err);
+                    assert(_err == 0);
+                });
             });
         }
         else
