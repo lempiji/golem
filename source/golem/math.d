@@ -664,14 +664,14 @@ version (all) // linear
         enum OutputDim = ShapeW[1];
 
         const batchSize = x.value.shape[0];
-        auto result = uninitSlice!T([batchSize, OutputDim]);
+        auto result = uninitSlice!T(batchSize, OutputDim);
+
+        import mir.blas : gemm, copy;
+
         foreach (i; 0 .. batchSize)
         {
-            result[i, 0 .. $] = B.value[];
+            copy(B.value, result[i]);
         }
-
-        import mir.blas : gemm;
-
         gemm(T(1), x.value, W.value, T(1), result);
 
         alias Return = typeof(return);
@@ -701,7 +701,7 @@ version (all) // linear
                     B.backward((ref bGrads) {
                         foreach (i; 0 .. batchSize)
                         {
-                            bGrads[] += grad[i, 0 .. $];
+                            bGrads[] += grad[i];
                         }
                     });
                 }
@@ -2557,6 +2557,115 @@ version (all) // concat2D
     }
 }
 
+version (all) // attach
+{
+    size_t[] makeAttachShape(size_t[] shapeX, size_t[] shapeY)
+    {
+        auto temp = shapeX.dup;
+        temp[$ - 1] += shapeY.length == 2 ? shapeY[1] : shapeY[0];
+        return temp;
+    }
+
+    unittest
+    {
+        assert(makeAttachShape([0, 1, 2], [3]) == [0, 1, 5]);
+        assert(makeAttachShape([0, 2, 2], [1]) == [0, 2, 3]);
+        assert(makeAttachShape([0, 1, 2], [0, 3]) == [0, 1, 5]);
+        assert(makeAttachShape([0, 2, 2], [0, 1]) == [0, 2, 3]);
+
+        assert(makeAttachShape([0, 3], [2]) == makeAttachShape([0, 3], [0, 2]));
+    }
+
+    auto attach(T, size_t[] ShapeX, UseGradient useGradX, size_t[] ShapeY, UseGradient useGradY)(Tensor!(T, ShapeX, useGradX) x, Tensor!(T, ShapeY, useGradY) y)
+    if (ShapeX.length > 1 && (ShapeY.length == 1 || ShapeY.length == 2))
+    {
+        enum ReturnShape = makeAttachShape(ShapeX, ShapeY);
+        alias ReturnTensor = Tensor!(T, ReturnShape, useGradX | useGradY);
+
+        auto z = uninitSlice!T([x.shape[0], expandShape!(ReturnShape[1 .. $])]);
+        static if (ShapeX.length == 2)
+        {
+            z[0 .. $, 0 .. ShapeX[1]] = x.value;
+            static if (ShapeY.length == 1)
+                z[0 .. $, ShapeX[1] .. $] = y.value;
+            else static if (ShapeY.length == 2)
+                z[0 .. $, ShapeX[1] .. $] = y.value[0 .. $, 0 .. $];
+        }
+        else
+            static assert(false, "not implemented");
+        
+        static if (useGradX | useGradY)
+        {
+            return new ReturnTensor(z, (grads) {
+                static if (useGradX)
+                {
+                    foreach (i; 0 .. grads.shape[0])
+                    {
+                        x.grads[i, 0 .. $] += grads[i, 0 .. ShapeX[1]];
+                    }
+                }
+                static if (useGradY)
+                {
+                    foreach (i; 0 .. grads.shape[0])
+                    {
+                        static if (ShapeY.length == 1)
+                            y.grads[] += grads[i, ShapeX[1] .. $];
+                        else static if (ShapeY.length == 2)
+                            y.grads[i, 0 .. $] += grads[i, ShapeX[1] .. $];
+                    }
+                }
+            });
+        }
+        else
+            return new ReturnTensor(z);
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto y = tensor!([1])([-10.0f]);
+
+        auto z = attach(x, y);
+        assert(z.shape == [2, 3]);
+        assert(z.value[0, 0] == x.value[0, 0]);
+        assert(z.value[0, 1] == x.value[0, 1]);
+        assert(z.value[0, 2] == y.value[0]);
+        assert(z.value[1, 0] == x.value[1, 0]);
+        assert(z.value[1, 1] == x.value[1, 1]);
+        assert(z.value[1, 2] == y.value[0]);
+
+        z.backward();
+        assert(x.grads[0, 0] == 1);
+        assert(x.grads[0, 1] == 1);
+        assert(x.grads[1, 0] == 1);
+        assert(x.grads[1, 1] == 1);
+        assert(y.grads[0] == 2);
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        auto y = tensor!([0, 1])([-10.0f, -20.0f]);
+
+        auto z = attach(x, y);
+        assert(z.shape == [2, 3]);
+        assert(z.value[0, 0] == x.value[0, 0]);
+        assert(z.value[0, 1] == x.value[0, 1]);
+        assert(z.value[0, 2] == y.value[0, 0]);
+        assert(z.value[1, 0] == x.value[1, 0]);
+        assert(z.value[1, 1] == x.value[1, 1]);
+        assert(z.value[1, 2] == y.value[1, 0]);
+
+        z.backward();
+        assert(x.grads[0, 0] == 1);
+        assert(x.grads[0, 1] == 1);
+        assert(x.grads[1, 0] == 1);
+        assert(x.grads[1, 1] == 1);
+        assert(y.grads[0, 0] == 1);
+        assert(y.grads[1, 0] == 1);
+    }
+}
+
 version (all) // projection1D
 {
     auto projection1D(size_t axis, T, size_t[] ShapeW, UseGradient useGradW, size_t[] ShapeX, UseGradient useGradX)(Tensor!(T, ShapeX, useGradX) x, Tensor!(T, ShapeW, useGradW) w)
@@ -3233,4 +3342,115 @@ version (all) // conv2D
 
         y.backward();
     }
+}
+
+
+version (all) // GlobalAveragePooling
+{
+    auto globalAveragePooling(T, size_t[] Shape, UseGradient useGrad)(Tensor!(T, Shape, useGrad) x)
+    {
+        static assert(Shape.length >= 3);
+
+        return globalAveragePooling!1(x);
+    }
+
+    auto globalAveragePooling(size_t axis, T, size_t[] Shape, UseGradient useGrad)(Tensor!(T, Shape, useGrad) x)
+    {
+        static assert(Shape.length >= 3);
+        static assert(1 <= axis && (axis + 1) < Shape.length);
+
+        import mir.math.sum : mirsum = sum;
+
+        enum elementCount = elementSize(Shape[axis + 1 .. $]);
+        auto y = x.value.ipack!(axis + 1).map!(a => mirsum(a) / elementCount).fuse();
+
+        alias Return = Tensor!(T, Shape[0 .. axis + 1], useGrad);
+        alias Value = Return.Value;
+
+        static if (canBackward!(typeof(x)))
+        {
+            x.usedCount++;
+
+            return new Return(y, (Value grad) {
+                x.backward((ref xGrads) {
+                    foreach (ref xg, ref g; zip(xGrads.ipack!(axis + 1).flattened, grad.flattened))
+                    {
+                        xg[] += g / elementCount;
+                    }
+                });
+            });
+        }
+        else
+        {
+            return new Return(y);
+        }
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        auto y = globalAveragePooling(x);
+
+        assert(y.shape == [2, 2]);
+        static assert(y.staticShape == [0, 2]);
+
+        y.backward();
+
+        import std.math: isClose;
+        
+        assert(x.grads[0, 0, 0].isClose(0.5));
+        assert(x.grads[0, 0, 1].isClose(0.5));
+        assert(x.grads[0, 1, 0].isClose(0.5));
+        assert(x.grads[0, 1, 1].isClose(0.5));
+        assert(x.grads[1, 0, 0].isClose(0.5));
+        assert(x.grads[1, 0, 1].isClose(0.5));
+        assert(x.grads[1, 1, 0].isClose(0.5));
+        assert(x.grads[1, 1, 1].isClose(0.5));
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 4])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        auto y = globalAveragePooling(x);
+
+        import std.format;
+
+        assert(y.shape == [1, 2], format("shape: %s", y.shape));
+        static assert(y.staticShape == [0, 2]);
+
+        y.backward();
+
+        import std.math: isClose;
+        
+        assert(x.grads[0, 0, 0].isClose(0.25));
+        assert(x.grads[0, 0, 1].isClose(0.25));
+        assert(x.grads[0, 0, 2].isClose(0.25));
+        assert(x.grads[0, 0, 3].isClose(0.25));
+        assert(x.grads[0, 1, 0].isClose(0.25));
+        assert(x.grads[0, 1, 1].isClose(0.25));
+        assert(x.grads[0, 1, 2].isClose(0.25));
+        assert(x.grads[0, 1, 3].isClose(0.25));
+    }
+
+    unittest
+    {
+        auto x = tensor!([0, 2, 2, 2])([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+
+        import std.math: isClose;
+
+        auto y = globalAveragePooling!1(x);
+        assert(y.shape == [1, 2]);
+        static assert(y.staticShape == [0, 2]);
+        assert(y.value[0, 0].isClose(2.5));
+        assert(y.value[0, 1].isClose(6.5));
+
+        auto z = globalAveragePooling!2(x);
+        assert(z.shape == [1, 2, 2]);
+        static assert(z.staticShape == [0, 2, 2]);
+        assert(z.value[0, 0, 0].isClose(1.5));
+        assert(z.value[0, 0, 1].isClose(3.5));
+        assert(z.value[0, 1, 0].isClose(5.5));
+        assert(z.value[0, 1, 1].isClose(7.5));
+    }
+
 }
