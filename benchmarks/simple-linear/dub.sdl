@@ -1,0 +1,7 @@
+name "simple-linear"
+description "A minimal D application."
+authors "lempiji"
+copyright "Copyright © 2022, lempiji"
+license "MIT"
+dependency "golem" path="../.."
+dependency "lantern" version="~>1.1.0"

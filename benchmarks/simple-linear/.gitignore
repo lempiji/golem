@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/simple-linear
+simple-linear.so
+simple-linear.dylib
+simple-linear.dll
+simple-linear.a
+simple-linear.lib
+simple-linear-test-*
+*.exe
+*.o
+*.obj
+*.lst
