@@ -646,7 +646,7 @@ version (all) // leakyRelu
 version (all) // linear
 {
     // dfmt off
-    Tensor!(T, [ShapeX[0], ShapeW[1]], useGradX | useGradW | useGradB) linear(
+    Tensor!(T, [ShapeX[0], ShapeB[0]], useGradX | useGradW | useGradB) linear(
         T,
         size_t[2] ShapeX, UseGradient useGradX,
         size_t[2] ShapeW, UseGradient useGradW,
@@ -661,9 +661,13 @@ version (all) // linear
         static assert(ShapeX[1] == ShapeW[0]);
         static assert(ShapeW[1] == ShapeB[0]);
 
-        enum OutputDim = ShapeW[1];
+        enum OutputDim = ShapeB[0];
 
-        const batchSize = x.value.shape[0];
+        static if (ShapeX[0] == 0)
+            const batchSize = x.value.shape[0];
+        else
+            enum batchSize = ShapeX[0];
+
         auto result = uninitSlice!T(batchSize, OutputDim);
 
         import mir.blas : gemm, copy;
@@ -711,6 +715,23 @@ version (all) // linear
         {
             return new Return(result);
         }
+    }
+
+    unittest
+    {
+        // static
+        Tensor!(float, [2, 2]) w = tensor!([2, 2])([1.0f, 2.0f, 3.0f, 4.0f]);
+        Tensor!(float, [2]) b = tensor!([2])([100.0f, 200.0f]);
+        // static batchSize
+        Tensor!(float, [1, 2]) x = tensor!([1, 2])([1.0f, 2.0f]);
+
+        // result
+        Tensor!(float, [1, 2]) z = linear(x, w, b);
+
+        assert(z.value[0, 0] == 1 * 1 + 2 * 3 + 100);
+        assert(z.value[0, 1] == 1 * 2 + 2 * 4 + 200);
+
+        z.backward();
     }
 
     unittest
