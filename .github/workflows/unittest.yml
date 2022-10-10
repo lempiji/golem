@@ -45,3 +45,23 @@ jobs:
     - name: 'Test README Examples'
       run: |
         dub run md --compiler=$DC -- README.md
+
+  benchmark-linear:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: dlang-community/setup-dlang@v1
+      with:
+        compilier: ldc-latest
+
+    - name: 'Install openblas-dev'
+      run: |
+        sudo apt-get install libopenblas-dev
+
+    - name: 'Build & Run'
+      run: |
+        cd benchmarks/simple-linear
+        dub build --compiler=$DC --build=release-nobounds
+        simple-linear
