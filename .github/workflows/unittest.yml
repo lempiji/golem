@@ -64,4 +64,4 @@ jobs:
       run: |
         cd benchmarks/simple-linear
         dub build --compiler=$DC --build=release-nobounds
-        simple-linear
+        ./simple-linear
